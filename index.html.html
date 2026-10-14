@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador IS-LM interactivo</title>
+<meta name="author" content="Demian Burak">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Simulador IS-LM · controles a la izquierda, gráficos a la derecha. Funciona sin conexión (las fuentes caen a las del sistema). */
+:root{
+  --zt:#E4EEFB; --zc:#FBEADF;
+  --bg:#F3F5F8; --panel:#FFFFFF; --ink:#13202C; --muted:#566676; --line:#D7DEE6; --grid:#E6EBF0;
+  --accent:#1D5DBA; --accent-soft:#E3EDFB; --hot:#C2501A; --lm:#7A3FB0; --ghost:#7C8B9B;
+  --good:#1B7A4B; --bad:#B3261E;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151C; --panel:#16212B; --ink:#E6EDF3; --muted:#9AA9B7; --line:#2A3947; --grid:#212E3A;
+    --accent:#6EA6FF; --accent-soft:#1B2B44; --hot:#FF9A5C; --lm:#C79BFF; --ghost:#7A8B9C;
+    --good:#5CCB92; --bad:#FF8279; color-scheme:dark; --zt:#18263A; --zc:#33231A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151C; --panel:#16212B; --ink:#E6EDF3; --muted:#9AA9B7; --line:#2A3947; --grid:#212E3A;
+  --accent:#6EA6FF; --accent-soft:#1B2B44; --hot:#FF9A5C; --lm:#C79BFF; --ghost:#7A8B9C;
+  --good:#5CCB92; --bad:#FF8279; color-scheme:dark; --zt:#18263A; --zc:#33231A;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1240px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:6px 24px;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+h1{font-size:26px;line-height:1.15;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0;font-size:14px}
+.tag{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;min-width:0}
+.panel h2{font-size:13px;font-family:var(--mono);font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+svg{display:block;width:100%;height:auto}
+.ax{fill:var(--muted);font-family:var(--mono);font-size:13px}
+.axt{fill:var(--ink);font-family:var(--sans);font-size:14px}
+.gl{stroke:var(--grid);stroke-width:1}
+.axis{stroke:var(--muted);stroke-width:1.5}
+.sup{stroke:var(--ink);stroke-width:3;fill:none}
+.supg{stroke:var(--ghost);stroke-width:2.5;stroke-dasharray:7 6;fill:none}
+.d1{stroke:var(--accent);stroke-width:3;fill:none;stroke-linecap:round}
+.d2{stroke:var(--hot);stroke-width:3;fill:none;stroke-linecap:round}
+.lex{stroke:var(--lm);stroke-width:1.4;fill:none;stroke-dasharray:2 5;opacity:.75}
+.lgh{stroke:var(--ghost);stroke-width:2.5;fill:none;stroke-dasharray:7 6}
+.llm{stroke:var(--lm);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fam{stroke:var(--ghost);stroke-width:1.2;fill:none;opacity:.55}
+.con1{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 4;fill:none}
+.con2{stroke:var(--hot);stroke-width:1.5;stroke-dasharray:4 4;fill:none}
+.num{fill:var(--panel);stroke:var(--muted);stroke-width:1}
+.numt{fill:var(--ink);font-family:var(--mono);font-size:11px;text-anchor:middle}
+.qt{fill:var(--muted);font-family:var(--mono);font-size:11.5px;letter-spacing:.04em}
+.d3{stroke:var(--ink);stroke-width:3;fill:none}
+.p1{fill:var(--accent);stroke:var(--panel);stroke-width:2}
+.p2{fill:var(--hot);stroke:var(--panel);stroke-width:2}
+.pf{fill:var(--lm);stroke:var(--panel);stroke-width:1.5}
+.t1{fill:var(--accent);font-family:var(--sans);font-size:14px;font-weight:600}
+.t2{fill:var(--hot);font-family:var(--sans);font-size:14px;font-weight:600}
+.tlm{fill:var(--lm);font-family:var(--sans);font-size:16px;font-weight:600}
+.tsup{fill:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600}
+.tgh{fill:var(--ghost);font-family:var(--sans);font-size:13px;font-weight:500}
+.tpan{fill:var(--muted);font-family:var(--mono);font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+.steps{margin:0;padding-left:20px;display:grid;gap:8px;font-size:14px}
+.steps b{font-family:var(--mono);font-weight:500}
+.switches{display:flex;flex-wrap:wrap;gap:8px}
+.sw{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 10px;cursor:pointer;font-size:13.5px;background:var(--panel);user-select:none}
+.sw input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.sw:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.sw:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+fieldset{border:0;border-top:1px solid var(--line);margin:12px 0 0;padding:10px 0 0;min-width:0}
+fieldset legend{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 8px 0 0}
+.row{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:baseline;margin-bottom:8px}
+.row label{font-size:13.5px}
+.row output{font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums;color:var(--accent);font-weight:500}
+.row input[type=range]{grid-column:1/-1;width:100%;margin:3px 0 0;accent-color:var(--accent)}
+.row.r2 output{color:var(--hot)} .row.r2 input{accent-color:var(--hot)}
+.row.off{opacity:.38}
+.row.off input{pointer-events:none}
+.shock{display:grid;gap:8px}
+.shock .line{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+select,input[type=number]{font:inherit;font-size:14px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:5px 8px;max-width:100%}
+input[type=number]{width:84px;font-family:var(--mono)}
+button{font:inherit;font-size:13.5px;font-weight:500;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:var(--panel);padding:6px 12px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.note{color:var(--muted);font-size:13px;margin:0}
+.warn{color:var(--bad);font-size:13.5px;margin:6px 0 0}
+.hide{display:none!important}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+th{font-family:var(--mono);font-weight:500;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.foot{display:block;margin-top:16px;color:var(--muted);font-size:12.5px}
+.bd{stroke:var(--good);stroke-width:2.5;fill:none}
+.tb{fill:var(--good);font-family:var(--sans);font-size:13px;font-weight:600}
+
+.wrap{max-width:1560px}
+.app{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1100px){.app{grid-template-columns:minmax(0,1fr)}}
+.side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px}
+@media (max-width:1100px){.side{position:static;max-height:none;overflow:visible}}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;min-width:0}
+@media (max-width:1350px){.charts{grid-template-columns:minmax(0,1fr)}}
+.charts .full{grid-column:1/-1}
+.colh{grid-column:1/-1;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 0 -6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.colh.hd{margin-top:2px}
+.panel .desc{margin:0 0 8px;font-size:13.5px;color:var(--muted);min-height:5.9em}
+#d_lmder{min-height:8.8em}.panel .desc b{color:var(--ink);font-weight:500}
+.views{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.views button{background:var(--panel);color:var(--ink);border:1px solid var(--line);font-weight:500}
+.views button.on{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+.charts:not([data-view="all"]) .colh{display:none}
+.charts[data-view="cruz"] [data-p]:not([data-p~="cruz"]),.charts[data-view="der"] [data-p]:not([data-p~="der"]),.charts[data-view="is"] [data-p]:not([data-p~="is"]),.charts[data-view="esp"] [data-p]:not([data-p~="esp"]),.charts[data-view="lmder"] [data-p]:not([data-p~="lmder"]),.charts[data-view="lm"] [data-p]:not([data-p~="lm"]),.charts[data-view="isl"] [data-p]:not([data-p~="isl"]){display:none}
+.charts:not([data-view="all"]):not([data-view="isl"]) .panel{grid-column:1/-1}
+.charts:not([data-view="all"]) svg{max-width:720px;margin-inline:auto}
+.side select{width:100%}
+.side .shock .line{align-items:center}
+.eqb{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:13px;margin-top:6px}
+.eqb span{white-space:normal}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
+.kpi small{display:block;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.kpi b{font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.t-bad{color:var(--bad)}
+.side .panel{padding:12px 14px}
+.credit{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justify-content:space-between;margin-top:16px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:13.5px;color:var(--muted)}
+.credit b{color:var(--ink);font-weight:600}
+.credit a{color:var(--accent);font-weight:600;text-decoration:none;border:1px solid var(--accent);border-radius:999px;padding:5px 14px;white-space:nowrap}
+.credit a:hover{background:var(--accent-soft)}
+.credit a:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+/* guía, leyenda, zonas, cascada, escenarios */
+.howto{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 16px;margin-bottom:12px;font-size:14px}
+.howto summary{cursor:pointer;font-weight:600}
+.howto ol{margin:8px 0 4px;padding-left:20px;display:grid;gap:4px}
+.howto p{margin:4px 0 0;color:var(--muted);font-size:13.5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 12px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--accent)}
+.legend i.l{border-top-color:var(--lm)} .legend i.g{border-top:2.5px dashed var(--ghost)}
+.legend i.dot{width:11px;height:11px;border:0;border-radius:50%;background:var(--accent)}
+.legend i.dot.o{background:var(--hot)} .legend i.dot.k{background:var(--ink)}
+.legend i.zt{width:16px;height:12px;border:1px solid var(--line);background:var(--zt)} .legend i.zc{width:16px;height:12px;border:1px solid var(--line);background:var(--zc)}
+.zt{fill:var(--zt)} .zc{fill:var(--zc)}
+.zlab{fill:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.03em}
+.floor{stroke:var(--ghost);stroke-width:1.5;stroke-dasharray:3 5}
+.stair{stroke:var(--ink);stroke-width:1.3;fill:none;opacity:.75}
+.dap{stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:8 5;opacity:.85}
+.arl{fill:var(--ink);font-family:var(--sans);font-size:12.5px;font-weight:600}
+.wb1{fill:var(--accent)} .wb2{fill:var(--ghost)} .wb3{fill:var(--bad)} .wb4{fill:var(--good)}
+.wlab{fill:var(--ink);font-family:var(--sans);font-size:13px;font-weight:600}
+.wval{fill:var(--ink);font-family:var(--mono);font-size:13px}
+.mcgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1100px){.mcgrid{grid-template-columns:minmax(0,1fr)}}
+.mctext{font-size:14px;display:grid;gap:8px}
+.mctext p{margin:0}
+.mctext .f{font-family:var(--mono);font-size:13.5px;background:var(--accent-soft);border-radius:4px;padding:6px 10px}
+.scen{display:grid;gap:6px}
+.scen button{text-align:left}
+.zonebox{border-left:3px solid var(--accent);padding:4px 0 4px 10px;margin-top:8px;font-size:14px}
+.zonebox.c{border-left-color:var(--hot)}
+/* modo presentación */
+.vnav{display:none}
+body.present .vnav{display:inline-block}
+body.present .howto,body.present .credit,body.present .foot{display:none}
+body.present .charts:not([data-view="all"]) svg{max-width:1040px}
+body.present .panel .desc{font-size:16px}
+body.present .kpi b{font-size:24px}
+body.present.noside .app{grid-template-columns:minmax(0,1fr)}
+body.present.noside .side{display:none}
+#btn_side{display:none} body.present #btn_side{display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><div class="tag">Simulador IS-LM interactivo · por Demian Burak</div><h1>Mercado de bienes, mercado de dinero y los dos juntos</h1></div>
+    <p class="sub">Todos los gráficos comparten las mismas variables: moviendo un slider se actualizan todos a la vez.</p>
+  </header>
+  <details class="howto" open>
+    <summary>Cómo usar el simulador</summary>
+    <ol>
+      <li><b>Elegí el punto de partida:</b> un escenario para clase, o un nivel de actividad (trampa de liquidez, media o pleno empleo).</li>
+      <li><b>Aplicá un cambio</b> de política fiscal o monetaria, o mové cualquier variable del panel izquierdo.</li>
+      <li><b>Seguí el recorrido de E₀ a E₁</b> en todos los gráficos, y leé «Qué pasó con el cambio» y «Multiplicador del gasto y crowding out».</li>
+    </ol>
+    <p>Para proyectar en clase: «Modo presentación» agranda los gráficos y permite pasar de uno a otro con las flechas ← → del teclado.</p>
+  </details>
+  <div class="views" id="views">
+    <button type="button" class="vnav" id="v_prev" aria-label="Gráfico anterior">◀</button>
+    <button type="button" data-v="all" class="on">Todos los gráficos</button>
+    <button type="button" data-v="cruz">1 · Cruz keynesiana</button>
+    <button type="button" data-v="der">2 · Cómo se forma la IS</button>
+    <button type="button" data-v="is">3 · IS (4 cuadrantes)</button>
+    <button type="button" data-v="esp">4 · Demanda especulativa</button>
+    <button type="button" data-v="lmder">5 · Cómo se forma la LM</button>
+    <button type="button" data-v="lm">6 · LM (4 cuadrantes)</button>
+    <button type="button" data-v="isl">7 · IS-LM y política</button>
+    <button type="button" class="vnav" id="v_next" aria-label="Gráfico siguiente">▶</button>
+    <button type="button" class="ghost" id="btn_present" style="margin-left:auto">Modo presentación</button>
+    <button type="button" class="ghost" id="btn_side">Ocultar controles</button>
+  </div>
+  <div class="legend" aria-label="Referencias de los gráficos">
+    <span><i></i>Curvas actuales (IS, DA)</span>
+    <span><i class="l"></i>LM</span>
+    <span><i class="g"></i>Situación anterior al cambio</span>
+    <span><i class="dot"></i>Equilibrio actual E₁</span>
+    <span><i class="dot o"></i>Equilibrio inicial E₀</span>
+    <span><i class="dot k"></i>E′ paso intermedio</span>
+    <span><i class="zt"></i>Trampa de liquidez</span>
+    <span><i class="zc"></i>Zona clásica</span>
+    <span>En los gráficos 2 y 5, azul y naranja son las dos tasas o ingresos que elegís.</span>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="app">
+    <aside class="side">
+      <section class="panel">
+        <h2>Escenarios para clase</h2>
+        <div class="scen">
+          <button type="button" class="ghost" data-sc="fisc_med">Crowding out: +100 de G en zona intermedia</button>
+          <button type="button" class="ghost" data-sc="mon_trap">Trampa de liquidez: +200 de M</button>
+          <button type="button" class="ghost" data-sc="fisc_trap">Trampa de liquidez: +100 de G</button>
+          <button type="button" class="ghost" data-sc="fisc_cla">Zona clásica: +100 de G</button>
+          <button type="button" class="ghost" data-sc="mon_cla">Zona clásica: +200 de M</button>
+        </div>
+        <p class="note" style="margin-top:8px">Cada escenario parte de los valores iniciales, elige el nivel de actividad y aplica el cambio.</p>
+      </section>
+      <section class="panel">
+        <h2>Experimento: política fiscal o monetaria</h2>
+        <div class="shock">
+          <div class="line"><label for="shk_comp">Cambio</label><select id="shk_comp"></select><label for="shk_amt">en</label><input type="text" inputmode="decimal" id="shk_amt" value="+100" style="width:84px;font-family:var(--mono)"></div>
+          <div class="line"><button id="btn_shock" type="button">Aplicar cambio</button><button id="btn_save" class="ghost" type="button" title="Toma la situación actual como E₀ y después podés mover cualquier variable">Fijar como punto de partida (E₀)</button><button id="btn_reset" class="ghost" type="button">Volver al inicio</button></div>
+          <p class="note" id="shk_note"></p>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Nivel de actividad de partida</h2>
+        <div class="switches">
+          <button type="button" class="ghost" id="act_b">Baja (trampa)</button>
+          <button type="button" class="ghost" id="act_m">Media</button>
+          <button type="button" class="ghost" id="act_a">Alta (pleno empleo)</button>
+        </div>
+        <div class="row" style="margin-top:10px" id="row_Aex"><label for="r_Aex">Gasto autónomo extra (mueve la IS)</label><output id="o_Aex"></output><input type="range" id="r_Aex" min="-800" max="800" step="10" value="0"></div>
+        <div class="switches" style="margin-top:6px">
+          <label class="sw"><input type="checkbox" id="sw_c1ind" checked> Consumo inducido por Y</label>
+          <label class="sw"><input type="checkbox" id="sw_tprop" checked> Impuesto proporcional</label>
+          <label class="sw" title="Congela los ejes para que solo se muevan las curvas. Si algo se sale del gráfico, desactivalo."><input type="checkbox" id="sw_fix" checked> Fijar escalas de los ejes</label>
+          <button type="button" class="ghost" id="btn_fit" title="Vuelve a calcular los ejes para que entren las curvas actuales">Reajustar ejes</button>
+          <p class="warn hide" id="fixnote" style="flex-basis:100%;margin:2px 0 0">Alguna curva se sale del gráfico: apretá «Reajustar ejes».</p>
+        </div>
+      </section>
+      <section class="panel"><h2>Variables</h2><div id="sliders"></div></section>
+    </aside>
+    <main class="charts" id="charts" data-view="all">
+      <section class="panel" data-p="cruz"><h2>Gráfico 1 · Cruz keynesiana: la DA y la recta de 45°</h2><p class="desc" id="d_cruz"></p><svg id="c_cruz" viewBox="0 0 640 470" role="img" aria-label="Cruz keynesiana"></svg>
+        <div class="switches" style="margin-top:8px"><label class="sw"><input type="checkbox" id="sw_rounds" checked> Mostrar las rondas del multiplicador</label><label class="sw"><input type="checkbox" id="sw_zoom1" checked> Ampliar alrededor del cambio</label></div></section>
+      <section class="panel" data-p="der"><h2>Gráfico 2 · Cómo se forma la IS desde la cruz</h2><p class="desc" id="d_der"></p><svg id="c_der" viewBox="0 0 640 790" role="img" aria-label="Derivación de la IS"></svg>
+        <div class="row" style="margin-top:8px"><label for="r_i1">Tasa i₁ (azul)</label><output id="o_i1"></output><input type="range" id="r_i1" min="0" max="20" step="0.1" value="8"></div>
+        <div class="row r2"><label for="r_i2">Tasa i₂ (naranja)</label><output id="o_i2"></output><input type="range" id="r_i2" min="0" max="20" step="0.1" value="4"></div>
+        <div class="switches"><label class="sw"><input type="checkbox" id="sw_fam"> Trazar la IS con muchas tasas</label></div></section>
+      <section class="panel" data-p="is"><h2>Gráfico 3 · IS en cuatro cuadrantes</h2><p class="desc" id="d_is"></p><svg id="c_is" viewBox="0 0 680 700" role="img" aria-label="IS en cuatro cuadrantes"></svg></section>
+      <section class="panel" data-p="esp"><h2>Gráfico 4 · Demanda especulativa de dinero</h2><p class="desc" id="d_esp"></p><svg id="c_esp" viewBox="0 0 640 470" role="img" aria-label="Demanda especulativa"></svg></section>
+      <section class="panel" data-p="lmder"><h2>Gráfico 5 · Cómo se forma la LM desde el mercado de dinero</h2><p class="desc" id="d_lmder"></p><svg id="c_lmder" viewBox="0 0 740 470" role="img" aria-label="Derivación de la LM"></svg>
+        <div class="row" style="margin-top:8px"><label for="r_Y1">Ingreso Y₁ (azul)</label><output id="o_Y1"></output><input type="range" id="r_Y1" min="0" max="3000" step="10" value="800"></div>
+        <div class="row r2"><label for="r_Y2">Ingreso Y₂ (naranja)</label><output id="o_Y2"></output><input type="range" id="r_Y2" min="0" max="3000" step="10" value="1400"></div>
+        <div class="switches"><label class="sw"><input type="checkbox" id="sw_famlm"> Trazar la LM con muchos ingresos</label></div></section>
+      <section class="panel" data-p="lm"><h2>Gráfico 6 · LM en cuatro cuadrantes</h2><p class="desc" id="d_lm"></p><svg id="c_lm" viewBox="0 0 680 700" role="img" aria-label="LM en cuatro cuadrantes"></svg></section>
+      <section class="panel" data-p="isl"><h2>Gráfico 7 · Equilibrio simultáneo IS-LM</h2><p class="desc" id="d_isl"></p><svg id="c_isl" viewBox="0 0 640 470" role="img" aria-label="IS y LM"></svg><div class="eqb" id="eqb"></div>
+        <div class="switches" style="margin-top:8px"><label class="sw"><input type="checkbox" id="sw_zoom7" checked> Ampliar alrededor del cambio</label></div></section>
+      <section class="panel" data-p="isl"><h2>Zonas de la LM: trampa de liquidez, intermedia y clásica</h2><svg id="c_mult" viewBox="0 0 640 300" role="img" aria-label="Multiplicadores según el nivel de actividad"></svg><div class="zonebox" id="zone"></div></section>
+      <section class="panel full" data-p="cruz isl"><h2>Multiplicador del gasto y crowding out</h2>
+        <div class="mcgrid"><div class="mctext" id="d_mc"></div>
+          <div><svg id="c_wf" viewBox="0 0 640 300" role="img" aria-label="Del multiplicador simple al efecto final"></svg>
+            <div class="tw" style="margin-top:8px"><table id="rounds"></table></div></div></div></section>
+      <section class="panel full" data-p="isl"><h2>Qué pasó con el cambio</h2><ol class="steps" id="steps"></ol><p class="warn hide" id="warn"></p></section>
+      <section class="panel" data-p="isl"><h2>Composición de la demanda</h2><div class="tw"><table id="res"></table></div></section>
+      <section class="panel" data-p="isl"><h2>Multiplicadores</h2><div class="tw"><table id="mult"></table></div></section>
+    </main>
+  </div>
+  <span class="foot">IS: i = (A − Δ·Y)/b con A = c₀ + c₁(TR − T₀) + I₀ + G₀ + XN₀ y Δ = 1 − c₁(1−t) + m. Multiplicador simple 1/Δ; multiplicador fiscal IS-LM 1/(Δ + b·λ), con λ = pendiente de la LM. LM: i = i_mín + a/(M/P − ky·Y). Cruz: DA = A − b·i + (1 − Δ)·Y evaluada en la tasa de equilibrio. S + T = Δ·Y − Z con Z = A − I₀ − G₀. El equilibrio de los gráficos 1, 3, 4, 6 y 7 es el mismo punto (Y*, i*); el gráfico 2 usa las dos tasas que elijas y el gráfico 5 los dos ingresos que elijas (Y₁ e Y₂): ahí la LM se forma uniendo los puntos donde la oferta real M/P corta a la demanda L = ky·Y + a/(i − i_mín).</span>
+  <div class="credit">
+    <span>Simulador creado por <b>Demian Burak</b> · Licenciado en Economía · Maestrando en Finanzas (UBA) · Material de uso libre para clases de macroeconomía.</span>
+    <a href="https://www.linkedin.com/in/demianburak" target="_blank" rel="noopener noreferrer">Conectá conmigo en LinkedIn →</a>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+var DEF={c0:200,c1:0.8,s:0.2,T0:100,t:0.25,TR:50,G0:300,I0:300,b:20,X0:150,M0:50,x:10,mu:10,e:1,m:0.1,
+         ky:0.5,a:1000,imin:2,M:1000,P:1,Aex:0};
+var SW0={c1ind:true,tprop:true,open:false};
+var SL=[
+ {g:"Consumo y política fiscal",items:[
+  {k:"c0",l:"Consumo autónomo c₀ (ahorro autónomo S₀ = −c₀)",min:-300,max:600,step:10,d:0},
+  {k:"c1",l:"Propensión marginal a consumir c₁",min:0.3,max:0.95,step:0.01,d:2,dep:"c1ind"},
+  {k:"s",l:"Propensión marginal a ahorrar s = 1 − c₁",min:0.05,max:0.7,step:0.01,d:2,dep:"c1ind"},
+  {k:"T0",l:"Impuestos de suma fija T₀",min:0,max:400,step:10,d:0},
+  {k:"t",l:"Tasa impositiva t",min:0,max:0.5,step:0.01,d:2,dep:"tprop"},
+  {k:"TR",l:"Transferencias TR",min:0,max:300,step:10,d:0},
+  {k:"G0",l:"Gasto público G₀",min:0,max:1200,step:10,d:0}]},
+ {g:"Inversión",items:[
+  {k:"I0",l:"Inversión autónoma I₀",min:0,max:800,step:10,d:0},
+  {k:"b",l:"Sensibilidad de la inversión a la tasa b",min:1,max:60,step:1,d:0}]},
+ {g:"Mercado de dinero",items:[
+  {k:"ky",l:"Sensibilidad de la demanda al ingreso ky",min:0.1,max:1,step:0.05,d:2},
+  {k:"a",l:"Sensibilidad especulativa a",min:100,max:3000,step:50,d:0},
+  {k:"imin",l:"Tasa mínima i_mín (piso, trampa de liquidez)",min:0,max:10,step:0.5,d:1},
+  {k:"M",l:"Oferta monetaria nominal M",min:100,max:3000,step:10,d:0},
+  {k:"P",l:"Nivel de precios P",min:0.5,max:2,step:0.05,d:2}]},
+ {g:"Sector externo",sw:"open",items:[
+  {k:"X0",l:"Exportaciones autónomas X₀",min:0,max:600,step:10,d:0,dep:"open"},
+  {k:"M0",l:"Importaciones autónomas M₀",min:0,max:600,step:10,d:0,dep:"open"},
+  {k:"m",l:"Propensión a importar m",min:0,max:0.5,step:0.01,d:2,dep:"open"},
+  {k:"x",l:"Sensibilidad de X al tipo de cambio x",min:0,max:50,step:1,d:0,dep:"open"},
+  {k:"mu",l:"Sensibilidad de M al tipo de cambio μ",min:0,max:50,step:1,d:0,dep:"open"},
+  {k:"e",l:"Tipo de cambio real e (↑ = depreciación)",min:0.5,max:2,step:0.05,d:2,dep:"open"}]}
+];
+/* cambios del experimento: [clave, nombre, monto sugerido] */
+var CH=[
+ ["G0","Gasto público G₀ (política fiscal)","+100"],["T0","Impuestos T₀ (política fiscal)","-100"],["TR","Transferencias TR (política fiscal)","+100"],
+ ["M","Oferta monetaria M (política monetaria)","+200"],["I0","Inversión autónoma I₀","+100"],["S0","Ahorro autónomo S₀","+50"],
+ ["s","Propensión a ahorrar s (↑s = ↓c₁)","+0,1"],["b","Sensibilidad de la inversión b","-10"],["a","Sensibilidad especulativa a","+500"],
+ ["imin","Tasa mínima i_mín","+2"],["P","Nivel de precios P (shock de precios)","+0,25"]];
+var LIM={Aex:{min:-800,max:800}};SL.forEach(function(g){g.items.forEach(function(s){LIM[s.k]=s;});});
+function clone(o){return JSON.parse(JSON.stringify(o));}
+var P=clone(DEF),sw=clone(SW0),base=null,lastComp=null,lastD=0,IMAX=20,view="all",I1=8,I2=4,FAM=false,YA=800,YB=1400,FAML=false,FIX=true,OVF=false,ROUNDS=true,ZOOM1=true,ZOOM7=true;
+var $=function(id){return document.getElementById(id);};
+var nf0=new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
+var nf1=new Intl.NumberFormat("es-AR",{minimumFractionDigits:1,maximumFractionDigits:1});
+var nf2=new Intl.NumberFormat("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+var nf3=new Intl.NumberFormat("es-AR",{minimumFractionDigits:3,maximumFractionDigits:3});
+function f0(v){return isFinite(v)?nf0.format(Math.round(v)):"—";}
+function fs(v,nf){return isFinite(v)?nf.format(v):"—";}
+function sg(v,nf){nf=nf||nf0;return (v>0.0000001?"+":v<-0.0000001?"−":"")+nf.format(Math.abs(v));}
+
+/* ================= modelo ================= */
+function model(p,s){
+  var c1=s.c1ind?p.c1:0, t=s.tprop?p.t:0, k=0, op=s.open, m=op?p.m:0;
+  var nx0=op?(p.X0-p.M0+(p.x+p.mu)*p.e):0;
+  var Z=p.c0+c1*(p.TR-p.T0)+nx0+p.Aex, A=Z+p.G0+p.I0, J0=p.I0+p.G0;
+  var sl=c1*(1-t)+k-m, D=1-sl, b=p.b, real=p.M/p.P, ky=p.ky;
+  var o={p:p,c1:c1,t:t,k:k,m:m,op:op,nx0:nx0,Z:Z,A:A,J0:J0,s:sl,D:D,b:b,real:real,ky:ky,imin:p.imin,a:p.a,ok:D>1e-6,Ymax:real/ky};
+  o.isI=function(y){return (A-D*y)/b;};
+  o.isY=function(i){return (A-b*i)/D;};
+  o.J=function(i){return J0-b*i;};
+  o.ST=function(y){return D*y-Z;};
+  o.da=function(y,i){return A-b*i+sl*y;};
+  o.L2of=function(i){return i>p.imin+1e-9?p.a/(i-p.imin):Infinity;};
+  o.lmI=function(y){var r=real-ky*y;return r>1e-9?p.imin+p.a/r:Infinity;};
+  o.lam=function(y){var r=real-ky*y;return r>1e-9?p.a*ky/(r*r):Infinity;};
+  o.solve=function(){
+    if(!o.ok)return {Y:NaN,i:NaN,ok:false};
+    var lo=0,hi=Math.min(A/D,o.Ymax*(1-1e-9));
+    if(!(hi>0))return {Y:0,i:o.lmI(0),ok:false};
+    var g=function(y){return o.isI(y)-o.lmI(y);};
+    if(g(lo)<0)return {Y:0,i:o.lmI(0),ok:false};
+    if(g(hi)>0)return {Y:hi,i:o.isI(hi),ok:true};
+    for(var n=0;n<90;n++){var mid=(lo+hi)/2;if(g(mid)>0)lo=mid;else hi=mid;}
+    var Y=(lo+hi)/2;return {Y:Y,i:o.isI(Y),ok:true};
+  };
+  o.eq=o.solve();
+  o.parts=function(Y,i){
+    var T=p.T0+t*Y, Yd=Y-T+p.TR, C=p.c0+c1*Yd, I=p.I0+k*Y-b*i, NX=op?(nx0-m*Y):0;
+    return {Y:Y,i:i,C:C,I:I,G:p.G0,NX:NX,T:T,Aex:p.Aex};
+  };
+  o.omega=function(y){return D+b*o.lam(y);};
+  o.mF=function(y){var w=o.omega(y);return isFinite(w)?1/w:0;};
+  o.mM=function(y){var l=o.lam(y);return isFinite(l)?(b*l/ky)/(D+b*l):1/ky;};
+  return o;
+}
+
+/* ================= controles ================= */
+function isOff(s){return s.dep?!sw[s.dep]:false;}
+function buildControls(){
+  var h="";
+  SL.forEach(function(g){
+    h+='<fieldset><legend>'+g.g+'</legend>';
+    if(g.sw)h+='<div class="switches" style="margin-bottom:8px"><label class="sw"><input type="checkbox" id="sw_'+g.sw+'"> Incluir economía abierta</label></div>';
+    g.items.forEach(function(s){
+      h+='<div class="row" id="row_'+s.k+'"><label for="r_'+s.k+'">'+s.l+'</label><output id="o_'+s.k+'"></output>'+
+         '<input type="range" id="r_'+s.k+'" min="'+s.min+'" max="'+s.max+'" step="'+s.step+'" value="'+DEF[s.k]+'"></div>';
+    });
+    h+='</fieldset>';
+  });
+  $("sliders").innerHTML=h;
+  SL.forEach(function(g){g.items.forEach(function(s){
+    $("r_"+s.k).addEventListener("input",function(e){P[s.k]=parseFloat(e.target.value);if(s.k==="s")P.c1=Math.round((1-P.s)*100)/100;lastComp=null;render();});
+  });});
+  $("r_Aex").addEventListener("input",function(e){P.Aex=parseFloat(e.target.value);lastComp=null;base=null;render();});
+  var o="";CH.forEach(function(c){o+='<option value="'+c[0]+'">'+c[1]+'</option>';});
+  $("shk_comp").innerHTML=o;
+  $("shk_comp").addEventListener("change",function(e){var c=CH.filter(function(x){return x[0]===e.target.value;})[0];if(c)$("shk_amt").value=c[2];});
+  ["c1ind","tprop","open"].forEach(function(k){$("sw_"+k).addEventListener("change",function(e){sw[k]=e.target.checked;base=null;lastComp=null;render();});});
+  $("btn_shock").addEventListener("click",applyChange);
+  $("r_i1").addEventListener("input",function(e){I1=parseFloat(e.target.value);render();});
+  $("r_i2").addEventListener("input",function(e){I2=parseFloat(e.target.value);render();});
+  $("sw_fam").addEventListener("change",function(e){FAM=e.target.checked;render();});
+  $("r_Y1").addEventListener("input",function(e){YA=parseFloat(e.target.value);render();});
+  $("r_Y2").addEventListener("input",function(e){YB=parseFloat(e.target.value);render();});
+  $("sw_famlm").addEventListener("change",function(e){FAML=e.target.checked;render();});
+  $("sw_fix").addEventListener("change",function(e){FIX=e.target.checked;SC={};render();});
+  $("btn_fit").addEventListener("click",function(){SC={};render();});
+  $("btn_save").addEventListener("click",function(){base={P:clone(P),sw:clone(sw)};lastComp=null;render();});
+  $("btn_reset").addEventListener("click",function(){if(base){P=clone(base.P);sw=clone(base.sw);sync();}base=null;lastComp=null;SC={};render();});
+  $("act_b").addEventListener("click",function(){setActivity(0.3);});
+  $("act_m").addEventListener("click",function(){setActivity(0.78);});
+  $("act_a").addEventListener("click",function(){setActivity(0.93);});
+  Array.prototype.forEach.call(document.querySelectorAll("#views button[data-v]"),function(bt){
+    bt.addEventListener("click",function(){setView(bt.getAttribute("data-v"));});
+  });
+  $("v_prev").addEventListener("click",function(){stepView(-1);});
+  $("v_next").addEventListener("click",function(){stepView(1);});
+  $("btn_present").addEventListener("click",function(){
+    var on=!document.body.classList.contains("present");
+    document.body.classList.toggle("present",on);
+    if(!on)document.body.classList.remove("noside");
+    $("btn_present").textContent=on?"Salir de presentación":"Modo presentación";
+    $("btn_side").textContent="Ocultar controles";
+    if(on&&view==="all")setView("cruz");
+  });
+  $("btn_side").addEventListener("click",function(){
+    var hid=document.body.classList.toggle("noside");
+    $("btn_side").textContent=hid?"Mostrar controles":"Ocultar controles";
+  });
+  document.addEventListener("keydown",function(e){
+    if(!document.body.classList.contains("present"))return;
+    var tg=e.target&&e.target.tagName;if(tg==="INPUT"||tg==="SELECT"||tg==="TEXTAREA")return;
+    if(e.key==="ArrowRight"){stepView(1);e.preventDefault();}
+    else if(e.key==="ArrowLeft"){stepView(-1);e.preventDefault();}
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-sc]"),function(bt){
+    bt.addEventListener("click",function(){runScenario(bt.getAttribute("data-sc"));});
+  });
+  $("sw_rounds").addEventListener("change",function(e){ROUNDS=e.target.checked;render();});
+  $("sw_zoom1").addEventListener("change",function(e){ZOOM1=e.target.checked;render();});
+  $("sw_zoom7").addEventListener("change",function(e){ZOOM7=e.target.checked;render();});
+}
+var VIEWS=["cruz","der","is","esp","lmder","lm","isl"];
+function setView(v){
+  view=v;$("charts").setAttribute("data-view",view);
+  Array.prototype.forEach.call(document.querySelectorAll("#views button[data-v]"),function(x){x.classList.toggle("on",x.getAttribute("data-v")===v);});
+}
+function stepView(d){var i=VIEWS.indexOf(view);i=i<0?0:(i+d+VIEWS.length)%VIEWS.length;setView(VIEWS[i]);}
+function parseNum(t){t=String(t).trim().replace(/\s/g,"").replace("−","-").replace(",",".");return parseFloat(t);}
+/* escenarios guiados: parten de los valores iniciales */
+var SCEN={fisc_med:[0.78,"G0","+100"],mon_trap:[0.3,"M","+200"],fisc_trap:[0.3,"G0","+100"],fisc_cla:[0.93,"G0","+100"],mon_cla:[0.93,"M","+200"]};
+function runScenario(id){
+  var sc=SCEN[id];if(!sc)return;
+  P=clone(DEF);sw=clone(SW0);base=null;lastComp=null;
+  setActivity(sc[0]);
+  $("shk_comp").value=sc[1];$("shk_amt").value=sc[2];
+  applyChange();
+  if(view!=="all"&&!document.body.classList.contains("present"))setView("isl");
+}
+function sync(){
+  SL.forEach(function(g){g.items.forEach(function(s){$("r_"+s.k).value=P[s.k];});});
+  $("r_Aex").value=P.Aex;
+  ["c1ind","tprop","open"].forEach(function(k){$("sw_"+k).checked=sw[k];});
+}
+function setActivity(frac){
+  var p0=clone(P);p0.Aex=0;var m0=model(p0,sw);
+  var Yt=m0.Ymax*frac, it=m0.lmI(Yt);
+  if(!isFinite(it))return;
+  P.Aex=Math.max(LIM.Aex.min,Math.min(LIM.Aex.max,Math.round((m0.D*Yt+m0.b*it-m0.A)/10)*10));
+  base=null;lastComp=null;SC={};sync();render();
+}
+function applyChange(){
+  var comp=$("shk_comp").value,d=parseNum($("shk_amt").value);
+  if(!isFinite(d)||d===0)return;
+  var shown=comp,key=comp;
+  if(comp==="S0"){key="c0";d=-d;}
+  if(comp==="s"){key="c1";d=-d;sw.c1ind=true;}
+  base={P:clone(P),sw:clone(sw)};
+  SC={};
+  var lim=LIM[key];
+  P[key]=Math.min(lim.max,Math.max(lim.min,P[key]+d));
+  lastComp=shown;lastD=P[key]-base.P[key];
+  if(shown==="S0"||shown==="s")lastD=-lastD;
+  sync();render();
+}
+
+/* ================= utilidades de dibujo ================= */
+/* Escalas estables: cada eje usa escalones fijos. Sube enseguida cuando el contenido no entra y
+   solo baja cuando lo necesario es menos de la mitad, así los gráficos no se reescalan ni "tiemblan". */
+var SC={};
+function hold(key,need,ladder){
+  var cur=SC[key],want=ladder[ladder.length-1],i,top=ladder[ladder.length-1];
+  if(!(need>0))need=ladder[0];
+  for(i=0;i<ladder.length;i++){if(ladder[i]>=need){want=ladder[i];break;}}
+  if(need>top)want=Math.ceil(need/top)*top;
+  if(FIX&&cur!==undefined){if(need>cur)OVF=true;return cur;}
+  if(cur===undefined||need>cur||need<cur*0.25)SC[key]=want;
+  return SC[key];
+}
+function ystep(v){return v<=2500?500:v<=6000?1000:v<=12000?2000:v<=30000?5000:10000;}
+function imaxFor(M,B){var m=20;[M.eq,B&&B.eq].forEach(function(e){if(e&&e.ok&&isFinite(e.i))m=Math.max(m,e.i*1.12);});return hold("I",Math.min(60,m),[20,30,40,60]);}
+function frame(c){
+  /* c: pref, WQ, ML, MT, ysc, lmax, imax, ys, ls, titles{q1..q4}, names{left,bottom,topv} */
+  var WQ=c.WQ,CX=c.ML+WQ,CY=c.MT+WQ;
+  var xY=function(v){return CX+v/c.ysc*WQ;}, xL=function(v){return CX-v/c.lmax*WQ;};
+  var yI=function(v){return CY-v/c.imax*WQ;}, yL=function(v){return CY+v/c.lmax*WQ;};
+  var s='<defs>';
+  [["q1",CX,CY-WQ],["q2",CX-WQ,CY-WQ],["q3",CX-WQ,CY],["q4",CX,CY]].forEach(function(q){
+    s+='<clipPath id="'+c.pref+q[0]+'"><rect x="'+q[1]+'" y="'+q[2]+'" width="'+WQ+'" height="'+WQ+'"/></clipPath>';});
+  s+='</defs>';
+  var v,stp=c.imax<=25?5:10;
+  for(v=0;v<=c.imax;v+=stp){
+    s+='<line class="gl" x1="'+(CX-WQ)+'" y1="'+yI(v)+'" x2="'+(CX+WQ)+'" y2="'+yI(v)+'"/>';
+    s+='<text class="ax" x="'+(c.ML-8)+'" y="'+(yI(v)+4)+'" text-anchor="end">'+v+'</text><text class="ax" x="'+(CX+WQ+8)+'" y="'+(yI(v)+4)+'">'+v+'</text>';
+  }
+  for(v=c.ls;v<=c.lmax;v+=c.ls){
+    s+='<line class="gl" x1="'+(CX-WQ)+'" y1="'+yL(v)+'" x2="'+(CX+WQ)+'" y2="'+yL(v)+'"/>';
+    s+='<text class="ax" x="'+(c.ML-8)+'" y="'+(yL(v)+4)+'" text-anchor="end">'+nf0.format(v)+'</text><text class="ax" x="'+(CX+WQ+8)+'" y="'+(yL(v)+4)+'">'+nf0.format(v)+'</text>';
+    s+='<line class="gl" x1="'+xL(v)+'" y1="'+(CY-WQ)+'" x2="'+xL(v)+'" y2="'+(CY+WQ)+'"/>';
+    s+='<text class="ax" x="'+xL(v)+'" y="'+(c.MT-10)+'" text-anchor="middle">'+nf0.format(v)+'</text><text class="ax" x="'+xL(v)+'" y="'+(CY+WQ+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';
+  }
+  for(v=c.ys;v<=c.ysc;v+=c.ys){
+    s+='<line class="gl" x1="'+xY(v)+'" y1="'+(CY-WQ)+'" x2="'+xY(v)+'" y2="'+(CY+WQ)+'"/>';
+    s+='<text class="ax" x="'+xY(v)+'" y="'+(c.MT-10)+'" text-anchor="middle">'+nf0.format(v)+'</text><text class="ax" x="'+xY(v)+'" y="'+(CY+WQ+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';
+  }
+  s+='<line class="axis" x1="'+(CX-WQ)+'" y1="'+CY+'" x2="'+(CX+WQ)+'" y2="'+CY+'"/><line class="axis" x1="'+CX+'" y1="'+(CY-WQ)+'" x2="'+CX+'" y2="'+(CY+WQ)+'"/>';
+  s+='<rect x="'+(CX-WQ)+'" y="'+(CY-WQ)+'" width="'+(2*WQ)+'" height="'+(2*WQ)+'" fill="none" stroke="var(--line)"/>';
+  s+='<text class="axt" x="'+(CX+WQ-8)+'" y="'+(CY-8)+'" text-anchor="end">Y</text>';
+  s+='<text class="axt" x="'+(CX-WQ+8)+'" y="'+(CY-8)+'">'+c.names.left+'</text>';
+  s+='<text class="axt" x="'+(CX+8)+'" y="'+(CY-WQ+16)+'">i (%)</text>';
+  s+='<text class="axt" x="'+(CX+8)+'" y="'+(CY+WQ-8)+'">'+c.names.bottom+'</text>';
+  s+='<text class="qt" x="'+(CX-WQ+6)+'" y="'+(CY-WQ+14)+'">'+c.titles[0]+'</text>';
+  s+='<text class="qt" x="'+(CX+WQ-6)+'" y="'+(CY-WQ+14)+'" text-anchor="end">'+c.titles[1]+'</text>';
+  s+='<text class="qt" x="'+(CX+WQ-6)+'" y="'+(CY+WQ-8)+'" text-anchor="end">'+c.titles[2]+'</text>';
+  s+='<text class="qt" x="'+(CX-WQ+6)+'" y="'+(CY+WQ-8)+'">'+c.titles[3]+'</text>';
+  return {s:s,CX:CX,CY:CY,xY:xY,xL:xL,yI:yI,yL:yL};
+}
+function nice(v,step){return Math.ceil(v/step)*step;}
+function scaleY(M,B){
+  /* el eje Y se dimensiona con los equilibrios (no con los extremos de las curvas): así no depende de G, M, P por separado */
+  var e0=M.eq,eb=B&&B.eq,ref;
+  if(e0&&e0.ok)ref=Math.max(e0.Y*1.3,eb&&eb.ok?eb.Y*1.3:0,1000);
+  else ref=Math.max(M.ok?M.A/M.D:0,B&&B.ok?B.A/B.D:0,M.Ymax,B?B.Ymax:0,1000);
+  return hold("Y",ref*1.04,[1500,2500,3500,5000,7500,10000,15000,20000,30000,50000]);
+}
+function marker(n,x,y){return '<circle class="num" cx="'+x+'" cy="'+y+'" r="8"/><text class="numt" x="'+x+'" y="'+(y+4)+'">'+n+'</text>';}
+
+/* ================= ayudas: tipo de cambio, punto intermedio E′ y zonas de la LM ================= */
+function sameIS(M,B){return B&&Math.abs(M.A-B.A)<1e-9&&Math.abs(M.D-B.D)<1e-9&&Math.abs(M.b-B.b)<1e-9;}
+function sameLM(M,B){return B&&Math.abs(M.real-B.real)<1e-9&&M.ky===B.ky&&M.a===B.a&&M.imin===B.imin;}
+function fiscalLike(M,B){return B&&sameLM(M,B)&&Math.abs(M.D-B.D)<1e-9&&Math.abs(M.b-B.b)<1e-9&&Math.abs(M.A-B.A)>1e-9;}
+function moneyLike(M,B){return B&&sameIS(M,B)&&Math.abs(M.real-B.real)>1e-9&&M.ky===B.ky&&M.a===B.a&&M.imin===B.imin;}
+function midOf(M,B,E0){
+  if(!B||!E0||!M.ok)return null;
+  if(fiscalLike(M,B))return {Y:(M.A-M.b*E0.i)/M.D,i:E0.i,k:"f",t:"multiplicador simple, tasa fija"};
+  if(moneyLike(M,B))return {Y:E0.Y,i:M.lmI(E0.Y),k:"m",t:"efecto liquidez, ingreso fijo"};
+  return null;
+}
+/* zonas según r = b·λ/Δ: trampa si r < 0,2; clásica si r > 3 */
+function zones(m){
+  if(!m.ok)return null;
+  function yAt(c){var r=Math.sqrt(m.b*m.a*m.ky/(c*m.D));return Math.max(0,Math.min(m.Ymax,(m.real-r)/m.ky));}
+  return {t:yAt(0.2),c:yAt(3)};
+}
+function zoneOf(m,Y){var lam=m.lam(Y),r=m.b*lam/m.D;if(!isFinite(lam)||r>3)return "c";if(r<0.2)return "t";return "i";}
+function bandsSVG(m,X,top,bot,ysc,xmin,xmax){
+  var z=zones(m);if(!z)return '';
+  var s='',x0=Math.max(xmin,X(0)),xt=Math.min(xmax,X(Math.min(z.t,ysc))),xc=Math.min(xmax,X(Math.min(z.c,ysc))),xe=Math.min(xmax,X(Math.min(m.Ymax,ysc)));
+  if(xt-x0>1){s+='<rect class="zt" x="'+x0+'" y="'+top+'" width="'+(xt-x0)+'" height="'+(bot-top)+'"/>';
+    if(xt-x0>120)s+='<text class="zlab" x="'+(x0+6)+'" y="'+(top+14)+'">TRAMPA DE LIQUIDEZ</text>';
+    else if(xt-x0>40)s+='<text class="zlab" x="'+(x0+4)+'" y="'+(top+14)+'">TRAMPA</text>';}
+  if(xe-xc>1){s+='<rect class="zc" x="'+xc+'" y="'+top+'" width="'+(xe-xc)+'" height="'+(bot-top)+'"/>';
+    if(xe-xc>70)s+='<text class="zlab" x="'+(xc+6)+'" y="'+(top+14)+'">CLÁSICA</text>';
+    else s+='<text class="zlab" x="'+(xc-4)+'" y="'+(top+14)+'" text-anchor="end">CLÁSICA →</text>';}
+  return s;
+}
+function niceStep(r){var c=[0.1,0.2,0.25,0.5,1,2,2.5,5,10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000],k;for(k=0;k<c.length;k++)if(r/c[k]<=6)return c[k];return c[c.length-1];}
+function cpLabel(m){return (sw.c1ind?'c₁':'0')+(sw.tprop&&sw.c1ind?'(1 − t)':'')+(m.op?' − m':'');}
+
+/* ================= 1 · cruz keynesiana ================= */
+function drawCross(M,B,E,E0,ysc){
+  var ML=60,MT=18,PW=550,PH=400,lo=0,hi=ysc,zoom=false,mid=midOf(M,B,E0);
+  if(ZOOM1&&E.ok&&E0&&E0.ok){
+    var pz=[E0.Y,E.Y];if(mid&&isFinite(mid.Y))pz.push(mid.Y);
+    var mn=Math.min.apply(null,pz),mx=Math.max.apply(null,pz),sp=Math.max(mx-mn,ysc*0.05),pd=sp*0.8;
+    lo=Math.max(0,mn-pd);hi=mx+pd;zoom=hi-lo<ysc*0.9;if(!zoom){lo=0;hi=ysc;}
+  }
+  var X=function(v){return ML+(v-lo)/(hi-lo)*PW;}, Yp=function(v){return MT+PH-(v-lo)/(hi-lo)*PH;};
+  var s='',v,ys=zoom?niceStep(hi-lo):ystep(ysc);
+  for(v=Math.floor(lo/ys)*ys+ys;v<=hi+1e-9;v+=ys){s+='<line class="gl" x1="'+ML+'" y1="'+Yp(v)+'" x2="'+(ML+PW)+'" y2="'+Yp(v)+'"/><text class="ax" x="'+(ML-8)+'" y="'+(Yp(v)+4)+'" text-anchor="end">'+nf0.format(v)+'</text>';
+    s+='<line class="gl" x1="'+X(v)+'" y1="'+MT+'" x2="'+X(v)+'" y2="'+(MT+PH)+'"/><text class="ax" x="'+X(v)+'" y="'+(MT+PH+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  s+='<line class="axis" x1="'+ML+'" y1="'+(MT+PH)+'" x2="'+(ML+PW)+'" y2="'+(MT+PH)+'"/><line class="axis" x1="'+ML+'" y1="'+MT+'" x2="'+ML+'" y2="'+(MT+PH)+'"/>';
+  s+='<text class="axt" x="'+(ML+PW)+'" y="'+(MT+PH+38)+'" text-anchor="end">Y</text><text class="axt" x="'+(ML+8)+'" y="'+(MT+14)+'">DA</text>';
+  s+='<defs><clipPath id="cc"><rect x="'+ML+'" y="'+MT+'" width="'+PW+'" height="'+PH+'"/></clipPath><marker id="arc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink)"/></marker></defs>';
+  function daLine(m,i,cls){return '<g clip-path="url(#cc)"><line class="'+cls+'" x1="'+X(lo)+'" y1="'+Yp(m.da(lo,i))+'" x2="'+X(hi)+'" y2="'+Yp(m.da(hi,i))+'"/></g>';}
+  s+='<g clip-path="url(#cc)"><line class="sup" x1="'+X(lo)+'" y1="'+Yp(lo)+'" x2="'+X(hi)+'" y2="'+Yp(hi)+'"/></g>';
+  var p45=zoom?lo+(hi-lo)*0.42:ysc*0.8;
+  s+='<text class="tsup" x="'+(X(p45)+14)+'" y="'+(Yp(p45)+18)+'">45° (Y = DA)</text>';
+  if(zoom)s+='<text class="qt" x="'+ML+'" y="'+(MT+PH+38)+'">VISTA AMPLIADA ALREDEDOR DEL CAMBIO</text>';
+  if(B&&E0&&E0.ok)s+=daLine(B,E0.i,'lgh');
+  if(E.ok){
+    /* rondas del multiplicador: escalera entre la DA y la recta de 45° */
+    if(ROUNDS&&mid&&E0){
+      var iS=mid.k==="f"?E0.i:E.i, y=E0.Y, d='M'+X(y)+' '+Yp(y), n;
+      for(n=0;n<14;n++){var dv=M.da(y,iS);d+=' L'+X(y)+' '+Yp(dv)+' L'+X(dv)+' '+Yp(dv);if(Math.abs(dv-y)<(hi-lo)*0.004)break;y=dv;}
+      s+='<g clip-path="url(#cc)"><path class="stair" d="'+d+'"/></g>';
+    }
+    if(mid&&mid.k==="f"){
+      s+=daLine(M,E0.i,'dap');
+      var lx=hi-(hi-lo)*0.02;s+='<text class="t1" style="opacity:.85" x="'+X(lx)+'" y="'+(Yp(M.da(lx,E0.i))-8)+'" text-anchor="end">DA con la tasa inicial i₀</text>';
+    }
+    s+=daLine(M,E.i,'d1');
+    var lx2=lo+(hi-lo)*0.03,off=(mid&&mid.k==="f")?20:-8;
+    s+='<text class="t1" x="'+X(lx2)+'" y="'+(Yp(M.da(lx2,E.i))+off)+'">DA (con i = '+nf1.format(E.i)+'%)</text>';
+    if(E0&&E0.ok){s+='<line class="con2" x1="'+X(E0.Y)+'" y1="'+Yp(E0.Y)+'" x2="'+X(E0.Y)+'" y2="'+(MT+PH)+'"/><circle class="p2" cx="'+X(E0.Y)+'" cy="'+Yp(E0.Y)+'" r="6"/><text class="t2" x="'+(X(E0.Y)-10)+'" y="'+(Yp(E0.Y)+20)+'" text-anchor="end">E₀</text>';}
+    if(mid&&mid.k==="f"&&isFinite(mid.Y)&&mid.Y<hi){
+      s+='<line x1="'+X(mid.Y)+'" y1="'+Yp(mid.Y)+'" x2="'+X(E.Y)+'" y2="'+Yp(E.Y)+'" stroke="var(--ink)" stroke-width="2" marker-end="url(#arc)"/>';
+      s+='<circle cx="'+X(mid.Y)+'" cy="'+Yp(mid.Y)+'" r="6" fill="var(--ink)" stroke="var(--panel)" stroke-width="2"/><text class="arl" x="'+(X(mid.Y)+10)+'" y="'+(Yp(mid.Y)-8)+'">E′ (tasa fija)</text>';
+      s+='<text class="arl" style="fill:var(--bad)" x="'+(X((mid.Y+E.Y)/2)+12)+'" y="'+(Yp((mid.Y+E.Y)/2)+16)+'">crowding out</text>';
+    }
+    s+='<line class="con1" x1="'+ML+'" y1="'+Yp(E.Y)+'" x2="'+X(E.Y)+'" y2="'+Yp(E.Y)+'"/><line class="con1" x1="'+X(E.Y)+'" y1="'+Yp(E.Y)+'" x2="'+X(E.Y)+'" y2="'+(MT+PH)+'"/>';
+    s+='<circle class="p1" cx="'+X(E.Y)+'" cy="'+Yp(E.Y)+'" r="8"/><circle class="p1" cx="'+X(E.Y)+'" cy="'+(MT+PH)+'" r="4.5"/>';
+    s+='<text class="t1" x="'+(X(E.Y)+12)+'" y="'+(Yp(E.Y)+(mid&&mid.k==="f"?20:-10))+'">'+(E0&&E0.ok?'E₁':'E')+'</text>';
+    if(lo===0){var a0=M.da(0,E.i);s+='<circle class="pf" cx="'+ML+'" cy="'+Yp(a0)+'" r="4.5"/>';}
+  }
+  $("c_cruz").innerHTML=s;
+  var cp=cpLabel(M),t='';
+  if(E.ok){
+    t='Con la tasa de equilibrio <b>i* = '+nf1.format(E.i)+'%</b>, la DA corta la recta de 45° en <b>Y* = '+f0(E.Y)+'</b>. La pendiente de la DA es la <b>propensión marginal a gastar c′ = '+cp+' = '+fs(M.s,nf2)+'</b> (no confundir con s, la propensión a ahorrar) y su ordenada es A − b·i* = '+f0(M.da(0,E.i))+'. Por eso el multiplicador simple es 1/(1 − c′) = <b>'+fs(1/M.D,nf2)+'</b>.';
+    if(mid&&mid.k==="f")t+=' <b>Tras el cambio:</b> con la tasa fija en i₀, las rondas del multiplicador (escalera) llevarían el ingreso de '+f0(E0.Y)+' a <b>E′ = '+f0(mid.Y)+'</b>. Pero el mayor ingreso sube la tasa a '+nf1.format(E.i)+'%, la inversión cae y la DA baja a la línea llena: el equilibrio final <b>E₁ = '+f0(E.Y)+'</b> queda por debajo de E′. Esa diferencia es el <b>crowding out</b>.';
+    else if(mid&&mid.k==="m")t+=' <b>Tras el cambio:</b> la tasa baja de '+nf1.format(E0.i)+'% a '+nf1.format(E.i)+'%, la inversión sube y la DA se corre hacia arriba; la escalera muestra las rondas del multiplicador hasta E₁.';
+    else if(!B)t+=' <i>Aplicá un cambio fiscal para ver las rondas del multiplicador y el crowding out.</i>';
+  }
+  $("d_cruz").innerHTML=t;
+}
+
+/* ================= 2 · derivación de la IS desde la cruz ================= */
+function drawDeriv(M,B,ysc,E){
+  var ML=60,PW=550,T0=16,TH=330,B0=T0+TH+70,BH=300;
+  var X=function(v){return ML+v/ysc*PW;}, YT=function(v){return T0+TH-v/ysc*TH;}, YB=function(v){return B0+BH-v/IMAX*BH;};
+  var s='<defs><clipPath id="dt"><rect x="'+ML+'" y="'+T0+'" width="'+PW+'" height="'+TH+'"/></clipPath><clipPath id="db"><rect x="'+ML+'" y="'+B0+'" width="'+PW+'" height="'+BH+'"/></clipPath></defs>',v,ys=ystep(ysc),st=IMAX<=25?5:10;
+  for(v=ys;v<=ysc;v+=ys){s+='<line class="gl" x1="'+ML+'" y1="'+YT(v)+'" x2="'+(ML+PW)+'" y2="'+YT(v)+'"/><text class="ax" x="'+(ML-8)+'" y="'+(YT(v)+4)+'" text-anchor="end">'+nf0.format(v)+'</text>';
+    s+='<line class="gl" x1="'+X(v)+'" y1="'+T0+'" x2="'+X(v)+'" y2="'+(B0+BH)+'"/><text class="ax" x="'+X(v)+'" y="'+(B0+BH+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  for(v=0;v<=IMAX;v+=st){s+='<line class="gl" x1="'+ML+'" y1="'+YB(v)+'" x2="'+(ML+PW)+'" y2="'+YB(v)+'"/><text class="ax" x="'+(ML-8)+'" y="'+(YB(v)+4)+'" text-anchor="end">'+v+'</text>';}
+  s+='<line class="axis" x1="'+ML+'" y1="'+(T0+TH)+'" x2="'+(ML+PW)+'" y2="'+(T0+TH)+'"/><line class="axis" x1="'+ML+'" y1="'+T0+'" x2="'+ML+'" y2="'+(T0+TH)+'"/>';
+  s+='<line class="axis" x1="'+ML+'" y1="'+(B0+BH)+'" x2="'+(ML+PW)+'" y2="'+(B0+BH)+'"/><line class="axis" x1="'+ML+'" y1="'+B0+'" x2="'+ML+'" y2="'+(B0+BH)+'"/>';
+  s+='<text class="axt" x="'+(ML+8)+'" y="'+(T0+14)+'">DA</text><text class="axt" x="'+(ML+PW)+'" y="'+(T0+TH+16)+'" text-anchor="end">Y</text>';
+  s+='<text class="axt" x="'+(ML+8)+'" y="'+(B0+14)+'">i (%)</text><text class="axt" x="'+(ML+PW)+'" y="'+(B0+BH+38)+'" text-anchor="end">Y</text>';
+  s+='<text class="qt" x="'+(ML+PW-6)+'" y="'+(T0+TH-8)+'" text-anchor="end">cruz keynesiana: Y = DA(i)</text><text class="qt" x="'+(ML+PW-6)+'" y="'+(B0+BH-8)+'" text-anchor="end">curva IS</text>';
+  s+='<g clip-path="url(#dt)"><line class="sup" x1="'+X(0)+'" y1="'+YT(0)+'" x2="'+X(ysc)+'" y2="'+YT(ysc)+'"/></g>';
+  s+='<text class="tsup" x="'+X(ysc*0.8)+'" y="'+(YT(ysc*0.8)+22)+'">45°</text>';
+  function da(m,i,cls){return '<g clip-path="url(#dt)"><line class="'+cls+'" x1="'+X(0)+'" y1="'+YT(m.da(0,i))+'" x2="'+X(ysc)+'" y2="'+YT(m.da(ysc,i))+'"/></g>';}
+  function isl(m,cls){return m.ok?'<g clip-path="url(#db)"><line class="'+cls+'" x1="'+X(m.isY(0))+'" y1="'+YB(0)+'" x2="'+X(m.isY(IMAX))+'" y2="'+YB(IMAX)+'"/></g>':'';}
+  if(!M.ok){$("c_der").innerHTML=s;return;}
+  if(B&&B.ok){s+=da(B,I1,'lgh')+da(B,I2,'lgh')+isl(B,'lgh');}
+  if(FAM){for(var q=0;q<=IMAX;q+=1){s+='<g clip-path="url(#dt)"><line class="fam" x1="'+X(0)+'" y1="'+YT(M.da(0,q))+'" x2="'+X(ysc)+'" y2="'+YT(M.da(ysc,q))+'"/></g>';s+='<circle class="pf" cx="'+X(M.isY(q))+'" cy="'+YB(q)+'" r="3.5"/>';}}
+  s+=da(M,I1,'d1')+da(M,I2,'d2')+isl(M,'d1');
+  var d1=M.da(ysc*0.03,I1),d2=M.da(ysc*0.03,I2),o1=d1>=d2?-8:20,o2=d2>d1?-8:20;
+  s+='<text class="t1" x="'+X(ysc*0.03)+'" y="'+(YT(d1)+o1)+'">DA con i₁ = '+nf1.format(I1)+'%</text><text class="t2" x="'+X(ysc*0.03)+'" y="'+(YT(d2)+o2)+'">DA con i₂ = '+nf1.format(I2)+'%</text>';
+  var yIS=(M.A-M.b*IMAX*0.8)/M.D;s+='<text class="tlm" x="'+(X(Math.max(0,yIS))+10)+'" y="'+(YB(IMAX*0.8)+4)+'">IS</text>';
+  [[1,I1],[2,I2]].forEach(function(z){
+    var n=z[0],i=z[1],Y=M.isY(i),x=X(Y);
+    s+='<line class="con'+n+'" x1="'+x+'" y1="'+YT(Y)+'" x2="'+x+'" y2="'+YB(i)+'"/><line class="con'+n+'" x1="'+ML+'" y1="'+YB(i)+'" x2="'+x+'" y2="'+YB(i)+'"/><line class="con'+n+'" x1="'+ML+'" y1="'+YT(Y)+'" x2="'+x+'" y2="'+YT(Y)+'"/>';
+    s+='<circle class="p'+n+'" cx="'+x+'" cy="'+YT(Y)+'" r="7"/><circle class="p'+n+'" cx="'+x+'" cy="'+(T0+TH)+'" r="4.5"/><circle class="p'+n+'" cx="'+x+'" cy="'+YB(i)+'" r="8"/><circle class="p'+n+'" cx="'+ML+'" cy="'+YB(i)+'" r="4.5"/>';
+    s+='<text class="t'+n+'" x="'+x+'" y="'+(T0+TH+(n===1?16:34))+'" text-anchor="middle">Y'+(n===1?'₁':'₂')+' = '+f0(Y)+'</text>';
+    s+='<text class="t'+n+'" x="'+(x+(n===1?12:-12))+'" y="'+(YB(i)+(n===1?-10:18))+'" text-anchor="'+(n===1?'start':'end')+'">(Y'+(n===1?'₁':'₂')+', i'+(n===1?'₁':'₂')+')</text>';
+  });
+  if(E&&E.ok&&E.i<=IMAX){
+    s+='<line class="floor" x1="'+ML+'" y1="'+YB(E.i)+'" x2="'+X(E.Y)+'" y2="'+YB(E.i)+'" style="stroke:var(--lm)"/>';
+    s+='<circle cx="'+X(E.Y)+'" cy="'+YB(E.i)+'" r="7" fill="var(--lm)" stroke="var(--panel)" stroke-width="2"/><text class="tlm" style="font-size:13px" x="'+(X(E.Y)+10)+'" y="'+(YB(E.i)+18)+'">E* (corte con la LM)</text>';
+  }
+  $("c_der").innerHTML=s;
+  var Y1=M.isY(I1),Y2=M.isY(I2);
+  $("d_der").innerHTML='Cada tasa da una DA distinta: con <b>i₁ = '+nf1.format(I1)+'%</b> la DA corta la recta de 45° en <b>Y₁ = '+f0(Y1)+'</b> y con <b>i₂ = '+nf1.format(I2)+'%</b> en <b>Y₂ = '+f0(Y2)+'</b>. Bajar la tasa sube la inversión (+'+f0(M.b*(I1-I2))+'), la DA se corre hacia arriba y el ingreso aumenta '+sg(Y2-Y1)+' (multiplicador 1/Δ = '+fs(1/M.D,nf2)+'). Cada par (Y, i) es un punto de la <b>IS</b>, de pendiente −Δ/b = '+fs(-M.D/M.b,nf3)+'. El punto violeta <b>E*</b> es el equilibrio IS-LM: de todos los puntos de la IS, el único que también equilibra el mercado de dinero.';
+}
+
+/* ================= 3 · demanda especulativa ================= */
+function drawSpec(M,B,E,E0){
+  var ML=64,MT=22,PW=540,PH=380;
+  var amax=Math.max(M.a,B?B.a:0),xm=hold("SX",amax/1.4,[1000,2000,3000,4000]),xs=xm<=1000?250:xm<=2000?500:1000;
+  var X=function(v){return ML+v/xm*PW;}, Yp=function(v){return MT+PH-v/IMAX*PH;};
+  var s='<defs><clipPath id="cs"><rect x="'+ML+'" y="'+MT+'" width="'+PW+'" height="'+PH+'"/></clipPath></defs>',v;
+  var st=IMAX<=25?5:10;
+  for(v=0;v<=IMAX;v+=st){s+='<line class="gl" x1="'+ML+'" y1="'+Yp(v)+'" x2="'+(ML+PW)+'" y2="'+Yp(v)+'"/><text class="ax" x="'+(ML-8)+'" y="'+(Yp(v)+4)+'" text-anchor="end">'+v+'</text>';}
+  for(v=xs;v<=xm;v+=xs){s+='<line class="gl" x1="'+X(v)+'" y1="'+MT+'" x2="'+X(v)+'" y2="'+(MT+PH)+'"/><text class="ax" x="'+X(v)+'" y="'+(MT+PH+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  s+='<line class="axis" x1="'+ML+'" y1="'+(MT+PH)+'" x2="'+(ML+PW)+'" y2="'+(MT+PH)+'"/><line class="axis" x1="'+ML+'" y1="'+MT+'" x2="'+ML+'" y2="'+(MT+PH)+'"/>';
+  s+='<text class="axt" x="'+(ML+PW)+'" y="'+(MT+PH+38)+'" text-anchor="end">L₂ · dinero para especular</text><text class="axt" x="'+(ML+8)+'" y="'+(MT+14)+'">i (%)</text>';
+  function curve(q,cls){var pts='',k,N=140;for(k=0;k<=N;k++){var ii=q.imin+0.03+(IMAX-q.imin-0.03)*Math.pow(k/N,2.2);pts+=X(Math.min(1e5,q.a/(ii-q.imin)))+','+Yp(ii)+' ';}
+    return '<g clip-path="url(#cs)"><polyline class="'+cls+'" points="'+pts+'"/></g>';}
+  s+='<line x1="'+ML+'" y1="'+Yp(M.imin)+'" x2="'+(ML+PW)+'" y2="'+Yp(M.imin)+'" stroke="var(--ghost)" stroke-width="1.5" stroke-dasharray="3 5"/>';
+  var tb=Math.min(IMAX,M.imin+1);
+  s+='<rect class="zt" x="'+ML+'" y="'+Yp(tb)+'" width="'+PW+'" height="'+(Yp(M.imin)-Yp(tb))+'"/>';
+  s+='<line class="floor" x1="'+ML+'" y1="'+Yp(M.imin)+'" x2="'+(ML+PW)+'" y2="'+Yp(M.imin)+'"/>';
+  s+='<text class="tgh" x="'+(ML+PW-6)+'" y="'+(Yp(M.imin)+16)+'" text-anchor="end">piso i_mín = '+nf1.format(M.imin)+'%</text>';
+  s+='<text class="zlab" x="'+(ML+8)+'" y="'+(Yp(M.imin)-5)+'">ZONA DE TRAMPA: LA DEMANDA SE VUELVE HORIZONTAL</text>';
+  if(B)s+=curve(B,'lgh');
+  s+=curve(M,'llm');
+  if(E.ok){
+    var L2=M.real-M.ky*E.Y, px=X(Math.max(0,Math.min(L2,xm)));
+    if(E0&&E0.ok){var L20=B.real-B.ky*E0.Y;s+='<line class="con2" x1="'+ML+'" y1="'+Yp(E0.i)+'" x2="'+X(Math.min(L20,xm))+'" y2="'+Yp(E0.i)+'"/><circle class="p2" cx="'+X(Math.min(L20,xm))+'" cy="'+Yp(E0.i)+'" r="6"/><text class="t2" x="'+(X(Math.min(L20,xm))+10)+'" y="'+(Yp(E0.i)+18)+'">E₀</text>';}
+    s+='<line class="con1" x1="'+ML+'" y1="'+Yp(E.i)+'" x2="'+px+'" y2="'+Yp(E.i)+'"/><line class="con1" x1="'+px+'" y1="'+Yp(E.i)+'" x2="'+px+'" y2="'+(MT+PH)+'"/>';
+    s+='<circle class="p1" cx="'+px+'" cy="'+Yp(E.i)+'" r="8"/><circle class="p1" cx="'+px+'" cy="'+(MT+PH)+'" r="4.5"/><circle class="p1" cx="'+ML+'" cy="'+Yp(E.i)+'" r="4.5"/>';
+    s+='<text class="t1" x="'+(px+12)+'" y="'+(Yp(E.i)-10)+'">'+(E0&&E0.ok?'E₁':'E')+' · L₂ = '+f0(L2)+'</text>';
+  }
+  $("c_esp").innerHTML=s;
+  $("d_esp").innerHTML=E.ok?'De la oferta real <b>M/P = '+f0(M.real)+'</b>, el ingreso de equilibrio usa <b>ky·Y* = '+f0(M.ky*E.Y)+'</b> para transacciones y quedan <b>L₂ = '+f0(M.real-M.ky*E.Y)+'</b> para especular. La gente acepta guardar esa cantidad solo si la tasa es <b>i* = '+nf1.format(E.i)+'%</b>. <b>Trampa de liquidez:</b> cerca del piso i_mín la curva se vuelve horizontal; la gente guarda cualquier cantidad extra de dinero sin que la tasa baje, y por eso la política monetaria pierde efecto.':'';
+}
+
+/* ================= 5 · formación de la LM desde el mercado de dinero ================= */
+function drawLMder(M,B,ysc,E){
+  var ML=56,T0=26,PH=380,GW=300,GAP=62;
+  var xm=hold("XM",Math.max(M.real*1.45,B?B.real*1.45:0,800),[1000,1500,2000,3000,4500,6000,9000]);
+  var XL0=ML,XR0=ML+GW+GAP,BOT=T0+PH;
+  var XM=function(v){return XL0+v/xm*GW;}, XY=function(v){return XR0+v/ysc*GW;}, YI=function(v){return BOT-v/IMAX*PH;};
+  var v,st=IMAX<=25?5:10,xs=xm<=2000?500:xm<=4500?1000:2000,ys=ystep(ysc),j;
+  /* ingreso efectivo: se limita al rango donde la demanda corta a la oferta dentro del gráfico */
+  function yEff(m,y){
+    var lim=m.Ymax*0.97,cap=IMAX*0.97;
+    if(cap>m.imin+1e-6)lim=Math.min(lim,(m.real-m.a/(cap-m.imin))/m.ky);
+    return Math.max(0,Math.min(y,lim));
+  }
+  var yA=yEff(M,YA),yB=yEff(M,YB);
+  var s='<defs><clipPath id="lml"><rect x="'+XL0+'" y="'+T0+'" width="'+GW+'" height="'+PH+'"/></clipPath><clipPath id="lmr"><rect x="'+XR0+'" y="'+T0+'" width="'+GW+'" height="'+PH+'"/></clipPath></defs>';
+  for(v=0;v<=IMAX;v+=st){
+    s+='<line class="gl" x1="'+XL0+'" y1="'+YI(v)+'" x2="'+(XL0+GW)+'" y2="'+YI(v)+'"/><line class="gl" x1="'+XR0+'" y1="'+YI(v)+'" x2="'+(XR0+GW)+'" y2="'+YI(v)+'"/>';
+    s+='<text class="ax" x="'+(XL0-8)+'" y="'+(YI(v)+4)+'" text-anchor="end">'+v+'</text><text class="ax" x="'+(XR0-8)+'" y="'+(YI(v)+4)+'" text-anchor="end">'+v+'</text>';
+  }
+  for(v=xs;v<=xm;v+=xs){s+='<line class="gl" x1="'+XM(v)+'" y1="'+T0+'" x2="'+XM(v)+'" y2="'+BOT+'"/><text class="ax" x="'+XM(v)+'" y="'+(BOT+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  for(v=ys;v<=ysc;v+=ys){s+='<line class="gl" x1="'+XY(v)+'" y1="'+T0+'" x2="'+XY(v)+'" y2="'+BOT+'"/><text class="ax" x="'+XY(v)+'" y="'+(BOT+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  s+=bandsSVG(M,XY,T0,BOT,ysc,XR0,XR0+GW);
+  s+='<line class="axis" x1="'+XL0+'" y1="'+BOT+'" x2="'+(XL0+GW)+'" y2="'+BOT+'"/><line class="axis" x1="'+XL0+'" y1="'+T0+'" x2="'+XL0+'" y2="'+BOT+'"/>';
+  s+='<line class="axis" x1="'+XR0+'" y1="'+BOT+'" x2="'+(XR0+GW)+'" y2="'+BOT+'"/><line class="axis" x1="'+XR0+'" y1="'+T0+'" x2="'+XR0+'" y2="'+BOT+'"/>';
+  s+='<text class="qt" x="'+XL0+'" y="'+(T0-10)+'">MERCADO DE DINERO: M/P = L(Y, i)</text><text class="qt" x="'+XR0+'" y="'+(T0-10)+'">CURVA LM</text>';
+  s+='<text class="axt" x="'+(XL0-8)+'" y="'+(T0-10)+'" text-anchor="end">i (%)</text>';
+  s+='<text class="axt" x="'+(XL0+GW-8)+'" y="'+(BOT-8)+'" text-anchor="end">dinero real</text><text class="axt" x="'+(XR0+GW-8)+'" y="'+(BOT-8)+'" text-anchor="end">Y</text>';
+  /* piso de la tasa (trampa de liquidez) */
+  s+='<line x1="'+XL0+'" y1="'+YI(M.imin)+'" x2="'+(XL0+GW)+'" y2="'+YI(M.imin)+'" stroke="var(--ghost)" stroke-width="1.5" stroke-dasharray="3 5"/><text class="tgh" x="'+(XL0+GW-6)+'" y="'+(YI(M.imin)+15)+'" text-anchor="end">piso i_mín</text>';
+  function dem(m,Yv,cls){
+    var pts='',k,N=140;
+    for(k=0;k<=N;k++){var ii=m.imin+0.03+(IMAX-m.imin-0.03)*Math.pow(k/N,2.2);pts+=XM(Math.min(1e5,m.ky*Yv+m.a/(ii-m.imin)))+','+YI(ii)+' ';}
+    return '<g clip-path="url(#lml)"><polyline class="'+cls+'" points="'+pts+'"/></g>';
+  }
+  function lmc(m,cls){
+    var pts='',k,N=220;
+    for(k=0;k<=N;k++){var y=m.Ymax*(1-Math.pow(1-k/N,2.4)*0.99995);if(y>ysc)break;var i=m.lmI(y);if(!isFinite(i))i=IMAX*2;pts+=XY(y)+','+YI(Math.min(i,IMAX*2))+' ';}
+    return '<g clip-path="url(#lmr)"><polyline class="'+cls+'" points="'+pts+'"/></g>';
+  }
+  if(B&&B.ok){
+    s+=dem(B,yEff(B,YA),'lgh')+dem(B,yEff(B,YB),'lgh');
+    s+='<line class="lgh" x1="'+XM(B.real)+'" y1="'+T0+'" x2="'+XM(B.real)+'" y2="'+BOT+'"/>'+lmc(B,'lgh');
+  }
+  if(FAML){
+    var yf=yEff(M,1e9);
+    for(j=0;j<=12;j++){
+      var yj=yf*j/12,ij=M.lmI(yj);
+      if(!isFinite(ij))continue;
+      s+=dem(M,yj,'fam')+'<circle class="pf" cx="'+XM(M.real)+'" cy="'+YI(ij)+'" r="3.5"/><circle class="pf" cx="'+XY(yj)+'" cy="'+YI(ij)+'" r="3.5"/>';
+    }
+  }
+  /* oferta real vertical y demandas para Y1 e Y2 */
+  s+='<line class="sup" x1="'+XM(M.real)+'" y1="'+T0+'" x2="'+XM(M.real)+'" y2="'+BOT+'"/><text class="tsup" x="'+(XM(M.real)+8)+'" y="'+(T0+16)+'">M/P = '+f0(M.real)+'</text>';
+  s+=dem(M,yA,'d1')+dem(M,yB,'d2');
+  var il=IMAX*0.9,xa=XM(M.ky*yA+M.a/(il-M.imin)),xb=XM(M.ky*yB+M.a/(il-M.imin));
+  if(il>M.imin+0.5){
+    s+='<text class="t1" x="'+(xa+(xa<=xb?-8:8))+'" y="'+(YI(il)+4)+'" text-anchor="'+(xa<=xb?'end':'start')+'">L(Y₁)</text>';
+    s+='<text class="t2" x="'+(xb+(xb<xa?-8:8))+'" y="'+(YI(il)+4)+'" text-anchor="'+(xb<xa?'end':'start')+'">L(Y₂)</text>';
+  }
+  s+=lmc(M,'llm');
+  var yl=(M.real-M.a/(IMAX*0.55-M.imin))/M.ky;
+  if(isFinite(yl)&&yl>0&&yl<ysc)s+='<text class="tlm" x="'+(XY(yl)+10)+'" y="'+(YI(IMAX*0.55)+4)+'">LM</text>';
+  var iA=M.lmI(yA),iB=M.lmI(yB);
+  [[1,yA,iA,'₁'],[2,yB,iB,'₂']].forEach(function(z){
+    var n=z[0],Yn=z[1],i=z[2];
+    if(!isFinite(i)||i>IMAX*1.02)return;
+    var xr=XY(Yn),yy=YI(i),up=(n===1)?(iA>=iB):(iB>iA);
+    s+='<line class="con'+n+'" x1="'+XL0+'" y1="'+yy+'" x2="'+xr+'" y2="'+yy+'"/><line class="con'+n+'" x1="'+xr+'" y1="'+yy+'" x2="'+xr+'" y2="'+BOT+'"/>';
+    s+='<circle class="p'+n+'" cx="'+XM(M.real)+'" cy="'+yy+'" r="8"/><circle class="p'+n+'" cx="'+xr+'" cy="'+yy+'" r="8"/><circle class="p'+n+'" cx="'+XL0+'" cy="'+yy+'" r="4.5"/><circle class="p'+n+'" cx="'+xr+'" cy="'+BOT+'" r="4.5"/>';
+    s+='<text class="t'+n+'" x="'+(XL0+8)+'" y="'+(yy+(up?-8:18))+'">i'+z[3]+' = '+nf1.format(i)+'%</text>';
+    s+='<text class="t'+n+'" x="'+xr+'" y="'+(BOT+(n===1?34:50))+'" text-anchor="middle">Y'+z[3]+' = '+f0(Yn)+'</text>';
+  });
+  if(E&&E.ok&&E.i<=IMAX&&E.Y<=ysc){
+    s+=dem(M,E.Y,'lex')+'<line class="floor" x1="'+XM(M.real)+'" y1="'+YI(E.i)+'" x2="'+XY(E.Y)+'" y2="'+YI(E.i)+'" style="stroke:var(--lm);opacity:.6"/>';
+    s+='<circle cx="'+XY(E.Y)+'" cy="'+YI(E.i)+'" r="7" fill="var(--lm)" stroke="var(--panel)" stroke-width="2"/><text class="tlm" style="font-size:13px" x="'+(XY(E.Y)-10)+'" y="'+(YI(E.i)-10)+'" text-anchor="end">E*</text>';
+    s+='<circle cx="'+XM(M.real)+'" cy="'+YI(E.i)+'" r="5" fill="var(--lm)" stroke="var(--panel)" stroke-width="2"/>';
+  }
+  $("c_lmder").innerHTML=s;
+  $("o_Y1").textContent=f0(yA);$("o_Y2").textContent=f0(yB);
+  var shift=M.ky*(yB-yA),upY=yB>=yA,cl=Math.abs(yA-YA)>0.5||Math.abs(yB-YB)>0.5;
+  $("d_lmder").innerHTML='La oferta real <b>M/P = '+f0(M.real)+'</b> es una vertical. La demanda total <b>L = ky·Y + a/(i − i_mín)</b> suma la parte transaccional, que depende del ingreso, y la especulativa, que depende de la tasa. Con <b>Y₁ = '+f0(yA)+'</b> la demanda corta a la oferta en <b>i₁ = '+nf1.format(iA)+'%</b>. Si el ingreso pasa a <b>Y₂ = '+f0(yB)+'</b>, la demanda se desplaza '+sg(shift)+' hacia la '+(upY?'derecha':'izquierda')+' (ky·ΔY): para cada tasa se demanda '+(upY?'más':'menos')+' dinero y, como la oferta no cambia, la tasa de equilibrio '+(upY?'sube':'baja')+' a <b>i₂ = '+nf1.format(iB)+'%</b>. Cada par (Y, i) es un punto de la <b>LM</b>; el punto violeta <b>E*</b> es el equilibrio con la IS (la curva punteada violeta es la demanda con Y*). Las bandas de fondo marcan la trampa de liquidez (LM casi horizontal) y la zona clásica (LM casi vertical).'+(cl?' <i>El ingreso se limita al rango en que la tasa entra en el gráfico.</i>':'');
+}
+
+/* ================= 2 · IS cuatro cuadrantes ================= */
+function drawIS4(M,B,E,E0,ysc){
+  var lmax=hold("LJ",Math.max(M.J0,B?B.J0:0,100)*1.05,[600,1200,2000,3000,5000]);
+  var c={pref:"a",WQ:290,ML:50,MT:44,ysc:ysc,lmax:lmax,imax:IMAX,ys:ystep(ysc),ls:lmax<=600?100:lmax<=1200?200:lmax<=2000?400:lmax<=3000?500:1000,
+    names:{left:"I + G",bottom:M.op?"S + T − XN":"S + T"},titles:[]};
+  /* orden de títulos: q2(arriba izq), q1(arriba der), q4(abajo der), q3(abajo izq); con economía abierta las filtraciones netas son S + T − XN */
+  var lk=M.op?"S + T − XN":"S + T";
+  c.titles=["1 · I + G = I₀ + G₀ − b·i","2 · IS","3 · "+lk+" = Δ·Y − Z","4 · I + G = "+lk];
+  var F=frame(c),s=F.s,xY=F.xY,xL=F.xL,yI=F.yI,yL=F.yL,CX=F.CX,CY=F.CY;
+  function curves(m,c3,cIS,c2,c4){
+    var o='';
+    o+='<g clip-path="url(#aq2)"><line class="'+c2+'" x1="'+xL(m.J0)+'" y1="'+yI(0)+'" x2="'+xL(m.J(IMAX))+'" y2="'+yI(IMAX)+'"/></g>';
+    o+='<g clip-path="url(#aq3)"><line class="'+c3+'" x1="'+xL(0)+'" y1="'+yL(0)+'" x2="'+xL(lmax)+'" y2="'+yL(lmax)+'"/></g>';
+    if(m.ok){var y0=Math.max(0,m.Z/m.D);
+      o+='<g clip-path="url(#aq4)"><line class="'+c4+'" x1="'+xY(y0)+'" y1="'+yL(m.ST(y0))+'" x2="'+xY(ysc)+'" y2="'+yL(m.ST(ysc))+'"/></g>';
+      o+='<g clip-path="url(#aq1)"><line class="'+cIS+'" x1="'+xY(m.isY(0))+'" y1="'+yI(0)+'" x2="'+xY(m.isY(IMAX))+'" y2="'+yI(IMAX)+'"/></g>';}
+    return o;
+  }
+  if(B)s+=curves(B,'lgh','lgh','lgh','lgh');
+  s+=curves(M,'d3','d1','d3','d3');
+  function route(m,i,n,withMarks){
+    var Y=m.isY(i),J=m.J(i);
+    if(J<0||J>lmax)return '';
+    var yy=yI(i),p1x=xL(J),p2y=yL(J),p4x=xY(Y),o='';
+    var d='M'+CX+' '+yy+' L'+p1x+' '+yy+' L'+p1x+' '+p2y+' L'+p4x+' '+p2y+' L'+p4x+' '+yy+' L'+p4x+' '+CY+' M'+p4x+' '+yy+' L'+CX+' '+yy;
+    o+='<path class="con'+n+'" d="'+d+'" style="stroke-width:2"/>';
+    o+='<circle class="p'+n+'" cx="'+CX+'" cy="'+yy+'" r="5"/><circle class="p'+n+'" cx="'+p1x+'" cy="'+yy+'" r="5"/><circle class="p'+n+'" cx="'+p1x+'" cy="'+p2y+'" r="5"/><circle class="p'+n+'" cx="'+p4x+'" cy="'+p2y+'" r="5"/><circle class="p'+n+'" cx="'+p4x+'" cy="'+CY+'" r="4.5"/><circle class="p'+n+'" cx="'+p4x+'" cy="'+yy+'" r="8"/>';
+    if(withMarks)o+=marker("1",p1x,yy-16)+marker("4",p1x-16,p2y)+marker("3",p4x,p2y+16)+marker("2",p4x+16,yy);
+    return o;
+  }
+  if(E0&&E0.ok)s+=route(B,E0.i,2,false)+'<text class="t2" x="'+(xY(E0.Y)-12)+'" y="'+(yI(E0.i)+22)+'" text-anchor="end">E₀</text>';
+  if(E.ok){s+=route(M,E.i,1,true)+'<text class="t1" x="'+(xY(E.Y)+12)+'" y="'+(yI(E.i)-12)+'">'+(E0&&E0.ok?'E₁':'E')+'</text>';}
+  $("c_is").innerHTML=s;
+  $("d_is").innerHTML=E.ok?'Desde la tasa <b>i* = '+nf1.format(E.i)+'%</b>: la inversión más el gasto público suman <b>I + G = '+f0(M.J(E.i))+'</b> (1) → en equilibrio '+lk+' es igual (4) → esa cantidad se logra con <b>Y* = '+f0(E.Y)+'</b> (3) → punto de la IS (2). <i>Un cambio de G₀ o de I₀ mueve los cuadrantes 1 y 2, no el 3: '+lk+' = Δ·Y − Z solo cambia con c₀, T₀, TR, s, t o el sector externo.'+(M.op?' Con economía abierta, XN = exportaciones netas: lo que se ahorra y tributa, menos lo que el resto del mundo gasta en neto aquí, financia I + G.':'')+'</i>':'';
+}
+
+/* ================= 4 · LM cuatro cuadrantes ================= */
+function drawLM4(M,B,E,E0,ysc){
+  var lmax=hold("LL",Math.max(M.real*1.15,B?B.real*1.15:0,1000),[1000,2000,3000,5000,8000]);
+  var c={pref:"b",WQ:290,ML:50,MT:44,ysc:ysc,lmax:lmax,imax:IMAX,ys:ystep(ysc),ls:lmax<=1000?250:lmax<=2000?500:1000,
+    names:{left:"L₂",bottom:"L₁"},titles:["1 · L₂ = a/(i − i_mín)","2 · LM","3 · L₁ = ky·Y","4 · M/P = L₁ + L₂"]};
+  var F=frame(c),s=F.s,xY=F.xY,xL=F.xL,yI=F.yI,yL=F.yL,CX=F.CX,CY=F.CY;
+  function curves(m,c3,cLM,c2,c4){
+    var o='',k,N=90,p2='';
+    for(k=0;k<=N;k++){var ii=m.imin+0.05+(IMAX-m.imin-0.05)*Math.pow(k/N,2);p2+=xL(Math.min(1e4,m.a/(ii-m.imin)))+','+yI(ii)+' ';}
+    o+='<g clip-path="url(#bq2)"><polyline class="'+c2+'" points="'+p2+'"/></g>';
+    o+='<g clip-path="url(#bq3)"><line class="'+c3+'" x1="'+xL(m.real)+'" y1="'+yL(0)+'" x2="'+xL(0)+'" y2="'+yL(m.real)+'"/></g>';
+    o+='<g clip-path="url(#bq4)"><line class="'+c4+'" x1="'+xY(0)+'" y1="'+yL(0)+'" x2="'+xY(ysc)+'" y2="'+yL(m.ky*ysc)+'"/></g>';
+    var pts='';N=160;
+    for(k=0;k<=N;k++){var t=k/N,Yk=m.Ymax*(1-Math.pow(1-t,2.2)*0.9999);if(Yk>ysc)break;pts+=xY(Yk)+','+yI(Math.min(m.lmI(Yk),IMAX*1.6))+' ';}
+    o+='<g clip-path="url(#bq1)"><polyline class="'+cLM+'" points="'+pts+'"/></g>';
+    return o;
+  }
+  if(M.imin<=IMAX){s+='<line class="floor" x1="'+(CX-c.WQ)+'" y1="'+yI(M.imin)+'" x2="'+(CX+c.WQ)+'" y2="'+yI(M.imin)+'"/><text class="tgh" x="'+(CX+c.WQ-6)+'" y="'+(yI(M.imin)-6)+'" text-anchor="end">piso i_mín (trampa)</text>';}
+  if(B)s+=curves(B,'lgh','lgh','lgh','lgh');
+  s+=curves(M,'d3','llm','d3','d3');
+  function route(m,Y,n,withMarks){
+    var L1=m.ky*Y,rest=m.real-L1;
+    if(!(rest>1e-9)||L1>lmax)return '';
+    var i=m.lmI(Y),ax=xY(Y),aY=yL(L1),bx=xL(rest),iy=yI(Math.min(i,IMAX*1.5)),o='';
+    var d='M'+ax+' '+CY+' L'+ax+' '+aY+' L'+bx+' '+aY+' L'+bx+' '+iy+' L'+ax+' '+iy+' L'+ax+' '+CY+' M'+ax+' '+iy+' L'+CX+' '+iy;
+    o+='<path class="con'+n+'" d="'+d+'" style="stroke-width:2"/>';
+    o+='<circle class="p'+n+'" cx="'+ax+'" cy="'+CY+'" r="4.5"/><circle class="p'+n+'" cx="'+ax+'" cy="'+aY+'" r="5"/><circle class="p'+n+'" cx="'+bx+'" cy="'+aY+'" r="5"/><circle class="p'+n+'" cx="'+bx+'" cy="'+iy+'" r="5"/><circle class="p'+n+'" cx="'+ax+'" cy="'+iy+'" r="8"/><circle class="p'+n+'" cx="'+CX+'" cy="'+iy+'" r="4.5"/>';
+    if(withMarks)o+=marker("3",ax+16,(CY+aY)/2)+marker("4",(ax+bx)/2,aY+16)+marker("1",bx-16,(aY+iy)/2)+marker("2",(bx+ax)/2+0,iy-16);
+    return o;
+  }
+  if(E0&&E0.ok)s+=route(B,E0.Y,2,false)+'<text class="t2" x="'+(xY(E0.Y)-12)+'" y="'+(yI(Math.min(E0.i,IMAX*1.5))+22)+'" text-anchor="end">E₀</text>';
+  if(E.ok){s+=route(M,E.Y,1,true)+'<text class="t1" x="'+(xY(E.Y)+12)+'" y="'+(yI(Math.min(E.i,IMAX*1.5))-12)+'">'+(E0&&E0.ok?'E₁':'E')+'</text>';}
+  $("c_lm").innerHTML=s;
+  $("d_lm").innerHTML=E.ok?'Desde el ingreso <b>Y* = '+f0(E.Y)+'</b>: la demanda transaccional es <b>L₁ = ky·Y* = '+f0(M.ky*E.Y)+'</b> (3) → se pasa a la restricción M/P = L₁ + L₂ (4) → quedan <b>L₂ = '+f0(M.real-M.ky*E.Y)+'</b> para especular (1) → eso exige una tasa <b>i* = '+nf1.format(E.i)+'%</b> (2). <i>Un cambio de M o de P corre el cuadrante 4 y desplaza la LM (cuadrante 2). El cuadrante 3, L₁ = ky·Y, solo cambia con ky. La política fiscal no mueve la LM: el equilibrio se desliza sobre ella.</i>':'';
+}
+
+/* ================= 7 · IS-LM ================= */
+function drawISLM(M,B,E,E0,ysc){
+  var ML=60,MT=18,PW=550,PH=390,xlo=0,xhi=ysc,ilo=0,ihi=IMAX,zoom=false,mid0=(E.ok&&E0&&E0.ok)?midOf(M,B,E0):null;
+  if(ZOOM7&&mid0){
+    var py=[E0.Y,E.Y,mid0.Y],pi=[E0.i,E.i,mid0.i];
+    var ymn=Math.min.apply(null,py),ymx=Math.max.apply(null,py),ysp=Math.max(ymx-ymn,ysc*0.05);
+    var imn=Math.min.apply(null,pi),imx=Math.max.apply(null,pi),isp=Math.max(imx-imn,IMAX*0.05);
+    xlo=Math.max(0,ymn-ysp*0.9);xhi=ymx+ysp*0.9;ilo=Math.max(0,Math.min(imn-isp*0.9,M.imin-isp*0.3));ihi=imx+isp*0.9;
+    zoom=(xhi-xlo<ysc*0.85)||(ihi-ilo<IMAX*0.85);
+    if(!zoom){xlo=0;xhi=ysc;ilo=0;ihi=IMAX;}
+  }
+  var X=function(v){return ML+(v-xlo)/(xhi-xlo)*PW;}, Yp=function(v){return MT+PH-(v-ilo)/(ihi-ilo)*PH;};
+  var s='<defs><clipPath id="cp"><rect x="'+ML+'" y="'+MT+'" width="'+PW+'" height="'+PH+'"/></clipPath><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink)"/></marker></defs>',v;
+  var st=zoom?niceStep(ihi-ilo):(IMAX<=25?5:10),ys=zoom?niceStep(xhi-xlo):ystep(ysc),nfi=st<1?nf2:nf0;
+  s+=bandsSVG(M,X,MT,MT+PH,xhi,ML,ML+PW);
+  for(v=Math.ceil(ilo/st-1e-9)*st;v<=ihi+1e-9;v+=st){s+='<line class="gl" x1="'+ML+'" y1="'+Yp(v)+'" x2="'+(ML+PW)+'" y2="'+Yp(v)+'"/><text class="ax" x="'+(ML-8)+'" y="'+(Yp(v)+4)+'" text-anchor="end">'+nfi.format(v)+'</text>';}
+  for(v=Math.floor(xlo/ys)*ys+ys;v<=xhi+1e-9;v+=ys){s+='<line class="gl" x1="'+X(v)+'" y1="'+MT+'" x2="'+X(v)+'" y2="'+(MT+PH)+'"/><text class="ax" x="'+X(v)+'" y="'+(MT+PH+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  s+='<line class="axis" x1="'+ML+'" y1="'+(MT+PH)+'" x2="'+(ML+PW)+'" y2="'+(MT+PH)+'"/><line class="axis" x1="'+ML+'" y1="'+MT+'" x2="'+ML+'" y2="'+(MT+PH)+'"/>';
+  s+='<text class="axt" x="'+(ML+PW)+'" y="'+(MT+PH+38)+'" text-anchor="end">Y</text><text class="axt" x="'+(ML+8)+'" y="'+(MT+30)+'">i (%)</text>';
+  if(M.imin<=ihi&&M.imin>=ilo)s+='<line class="floor" x1="'+ML+'" y1="'+Yp(M.imin)+'" x2="'+(ML+PW)+'" y2="'+Yp(M.imin)+'"/><text class="tgh" x="'+(ML+PW-6)+'" y="'+(Yp(M.imin)+16)+'" text-anchor="end">piso i_mín = '+nf1.format(M.imin)+'%</text>';
+  if(zoom)s+='<text class="qt" x="'+ML+'" y="'+(MT+PH+38)+'">VISTA AMPLIADA ALREDEDOR DEL CAMBIO</text>';
+  function isLine(m,cls){return m.ok?'<g clip-path="url(#cp)"><line class="'+cls+'" x1="'+X(xlo)+'" y1="'+Yp(m.isI(xlo))+'" x2="'+X(xhi)+'" y2="'+Yp(m.isI(xhi))+'"/></g>':'';}
+  function lmCurve(m,cls){var pts='',k,N=260,ye=Math.min(xhi,m.Ymax*0.99995);if(ye<=xlo)return '';
+    for(k=0;k<=N;k++){var Y=xlo+(ye-xlo)*(1-Math.pow(1-k/N,2.4));var i=m.lmI(Y);if(!isFinite(i))i=ihi*3;pts+=X(Y)+','+Yp(Math.min(i,ilo+(ihi-ilo)*3))+' ';}
+    return '<g clip-path="url(#cp)"><polyline class="'+cls+'" points="'+pts+'"/></g>';}
+  if(B){s+=isLine(B,'lgh')+lmCurve(B,'lgh');}
+  s+=isLine(M,'d1')+lmCurve(M,'llm');
+  if(M.ok){var iIS=ilo+(ihi-ilo)*(zoom?0.3:0.85),yIS=(M.A-M.b*iIS)/M.D;if(yIS>=xlo&&yIS<=xhi)s+='<text class="t1" x="'+(X(yIS)+10)+'" y="'+(Yp(iIS)+4)+'">IS</text>';}
+  var iLM=ilo+(ihi-ilo)*0.88,yLM=iLM>M.imin?(M.real-M.a/(iLM-M.imin))/M.ky:NaN;
+  if(isFinite(yLM)&&yLM>=xlo&&yLM<=xhi)s+='<text class="tlm" x="'+(X(yLM)-12)+'" y="'+(Yp(iLM)+4)+'" text-anchor="end">LM</text>';
+  else s+='<text class="tlm" x="'+(ML+PW-30)+'" y="'+(Yp(Math.min(M.lmI(Math.min(xhi,M.Ymax*0.999)),ihi))+20)+'">LM</text>';
+  function pt(Y,i,cls,r){return '<circle class="'+cls+'" cx="'+X(Y)+'" cy="'+Yp(Math.min(i,ihi*1.5))+'" r="'+r+'"/>';}
+  function guides(Y,i,cls){return '<line class="'+cls+'" x1="'+ML+'" y1="'+Yp(i)+'" x2="'+X(Y)+'" y2="'+Yp(i)+'"/><line class="'+cls+'" x1="'+X(Y)+'" y1="'+Yp(i)+'" x2="'+X(Y)+'" y2="'+(MT+PH)+'"/>';}
+  var mid=null;
+  if(E.ok){
+    if(E0&&E0.ok){
+      mid=mid0;
+      s+=guides(E0.Y,E0.i,'con2');
+      var tiny=Math.abs(X(E.Y)-X(E0.Y))+Math.abs(Yp(E.i)-Yp(E0.i))<26;
+      if(tiny)s+='<text class="arl" x="'+(ML+12)+'" y="'+(MT+46)+'">El equilibrio casi no se movió: '+(mid&&mid.k==="m"?'en la trampa de liquidez la tasa casi no baja.':'el cambio casi no tiene efecto acá.')+'</text>';
+      if(!tiny&&mid&&isFinite(mid.i)&&mid.i<ihi*1.4&&mid.Y<=xhi){
+        s+='<line x1="'+X(E0.Y)+'" y1="'+Yp(E0.i)+'" x2="'+X(mid.Y)+'" y2="'+Yp(mid.i)+'" stroke="var(--ink)" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arr)"/>';
+        s+='<line x1="'+X(mid.Y)+'" y1="'+Yp(mid.i)+'" x2="'+X(E.Y)+'" y2="'+Yp(E.i)+'" stroke="var(--ink)" stroke-width="1.8" marker-end="url(#arr)"/>';
+        s+=pt(mid.Y,mid.i,'pf',5)+'<text class="arl" x="'+(X(mid.Y)+9)+'" y="'+(Yp(mid.i)+(mid.k==="f"?-8:-8))+'">E′</text>';
+        /* rótulos de los dos tramos */
+        if(mid.k==="f"){
+          s+='<text class="arl" x="'+((X(E0.Y)+X(mid.Y))/2)+'" y="'+(Yp(E0.i)+18)+'" text-anchor="middle">multiplicador simple (tasa fija)</text>';
+          s+='<text class="arl" style="fill:var(--bad)" x="'+(Math.max(X(mid.Y),X(E.Y))+12)+'" y="'+((Yp(mid.i)+Yp(E.i))/2+4)+'">crowding out</text>';
+        } else {
+          s+='<text class="arl" x="'+(X(E0.Y)+10)+'" y="'+((Yp(E0.i)+Yp(mid.i))/2+4)+'">efecto liquidez</text>';
+          s+='<text class="arl" x="'+((X(mid.Y)+X(E.Y))/2)+'" y="'+((Yp(mid.i)+Yp(E.i))/2+22)+'" text-anchor="middle">más inversión → más Y</text>';
+        }
+      }
+      s+=pt(E0.Y,E0.i,'p2',7)+'<text class="t2" x="'+(X(E0.Y)-10)+'" y="'+(Yp(E0.i)+(E.Y>=E0.Y?20:-12))+'" text-anchor="end">E₀</text>';
+    }
+    s+=guides(E.Y,E.i,'con1')+pt(E.Y,E.i,'p1',8)+'<circle class="p1" cx="'+X(E.Y)+'" cy="'+(MT+PH)+'" r="4.5"/><circle class="p1" cx="'+ML+'" cy="'+Yp(E.i)+'" r="4.5"/>';
+    s+='<text class="t1" x="'+(X(E.Y)+12)+'" y="'+(Yp(E.i)-10)+'">'+(E0&&E0.ok?'E₁':'E')+'</text>';
+  }
+  $("c_isl").innerHTML=s;
+  var inf='';
+  if(E.ok){
+    if(E0&&E0.ok){inf+='<span style="color:var(--hot);font-weight:600">E₀: Y = '+f0(E0.Y)+' · i = '+nf1.format(E0.i)+'%</span>';
+      if(mid)inf+='<span style="font-weight:600">E′ ('+mid.t+'): Y = '+f0(mid.Y)+' · i = '+nf1.format(mid.i)+'%</span>';}
+    inf+='<span style="color:var(--accent);font-weight:600">'+(E0&&E0.ok?'E₁':'E')+': Y = '+f0(E.Y)+' · i = '+nf1.format(E.i)+'%</span>';
+  }
+  $("eqb").innerHTML=inf;
+  var d='La IS (equilibrio del mercado de bienes) y la LM (equilibrio del mercado de dinero) se cortan en el único par <b>(Y*, i*)</b> que usan los demás gráficos.';
+  if(E.ok&&E0&&E0.ok&&mid){
+    var dY=E.Y-E0.Y,di=E.i-E0.i;
+    if(mid.k==="f")d+=' El cambio fiscal desplazó la <b>IS</b>; la LM no se movió y el equilibrio se deslizó sobre ella. Con la tasa fija el ingreso habría llegado a E′ ('+sg(mid.Y-E0.Y)+'), pero la tasa '+(di>=0?'subió ':'bajó ')+nf1.format(Math.abs(di))+' puntos, la inversión cambió '+sg(-M.b*di)+' y el ingreso final cambió <b>'+sg(dY)+'</b>: el crowding out restó '+f0(Math.abs(mid.Y-E.Y))+'.';
+    else d+=' El cambio monetario desplazó la <b>LM</b>; la IS no se movió. Primero la tasa '+(mid.i<=E0.i?'baja':'sube')+' con el ingreso fijo (E′, efecto liquidez); después la inversión '+(mid.i<=E0.i?'sube':'baja')+' y el multiplicador lleva el ingreso a E₁ ('+sg(dY)+').';
+  } else d+=' Las bandas de fondo muestran las zonas de la LM: <b>trampa de liquidez</b> (LM casi horizontal) y <b>zona clásica</b> (LM casi vertical).';
+  $("d_isl").innerHTML=d;
+  return mid;
+}
+/* ================= zonas de la LM y multiplicadores ================= */
+function drawMult(M,B,E,ysc){
+  var ML2=60,MT2=16,PW2=550,PH2=215,top=ysc,ymaxv=hold("MU",Math.max(1/Math.max(M.D,0.05)*1.15,1/M.ky*1.1,1),[3,5,8,12,20,30]);
+  var X=function(v){return ML2+v/top*PW2;}, Yp=function(v){return MT2+PH2-v/ymaxv*PH2;};
+  var s='<defs><clipPath id="cmu"><rect x="'+ML2+'" y="'+MT2+'" width="'+PW2+'" height="'+PH2+'"/></clipPath></defs>',v,stp=ymaxv<=3?0.5:ymaxv<=6?1:ymaxv<=12?2:ymaxv<=20?4:5,xs=ystep(top);
+  s+=bandsSVG(M,X,MT2,MT2+PH2,ysc,ML2,ML2+PW2);
+  for(v=0;v<=ymaxv;v+=stp){s+='<line class="gl" x1="'+ML2+'" y1="'+Yp(v)+'" x2="'+(ML2+PW2)+'" y2="'+Yp(v)+'"/><text class="ax" x="'+(ML2-8)+'" y="'+(Yp(v)+4)+'" text-anchor="end">'+nf1.format(v)+'</text>';}
+  for(v=0;v<=top;v+=xs){s+='<text class="ax" x="'+X(v)+'" y="'+(MT2+PH2+18)+'" text-anchor="middle">'+nf0.format(v)+'</text>';}
+  s+='<line class="axis" x1="'+ML2+'" y1="'+(MT2+PH2)+'" x2="'+(ML2+PW2)+'" y2="'+(MT2+PH2)+'"/><line class="axis" x1="'+ML2+'" y1="'+MT2+'" x2="'+ML2+'" y2="'+(MT2+PH2)+'"/>';
+  s+='<text class="axt" x="'+(ML2+PW2)+'" y="'+(MT2+PH2+38)+'" text-anchor="end">Nivel de actividad Y</text>';
+  if(M.ok){
+    var N=160,pf='',pm='',k,ye=Math.min(M.Ymax*0.995,top);
+    for(k=0;k<=N;k++){var Y=ye*k/N;pf+=X(Y)+','+Yp(M.mF(Y))+' ';pm+=X(Y)+','+Yp(Math.min(M.mM(Y),ymaxv))+' ';}
+    s+='<line x1="'+ML2+'" y1="'+Yp(1/M.D)+'" x2="'+(ML2+PW2)+'" y2="'+Yp(1/M.D)+'" stroke="var(--ghost)" stroke-width="1.5" stroke-dasharray="3 5"/>';
+    s+='<text class="tgh" x="'+(ML2+PW2-4)+'" y="'+(Yp(1/M.D)-6)+'" text-anchor="end">simple 1/Δ = '+nf2.format(1/M.D)+'</text>';
+    s+='<g clip-path="url(#cmu)"><polyline class="d1" points="'+pf+'"/><polyline class="d2" points="'+pm+'"/></g>';
+    s+='<text class="t1" x="'+(ML2+8)+'" y="'+(Yp(M.mF(0))+18)+'">fiscal dY/dG</text>';
+    s+='<text class="t2" x="'+(X(ye)-6)+'" y="'+(Yp(Math.min(M.mM(ye*0.96),ymaxv))+18)+'" text-anchor="end">monetario dY/d(M/P)</text>';
+    if(E.ok&&E.Y<=top){s+='<line class="con1" x1="'+X(E.Y)+'" y1="'+MT2+'" x2="'+X(E.Y)+'" y2="'+(MT2+PH2)+'"/><circle class="p1" cx="'+X(E.Y)+'" cy="'+Yp(Math.min(M.mF(E.Y),ymaxv))+'" r="6"/><circle class="p2" cx="'+X(E.Y)+'" cy="'+Yp(Math.min(M.mM(E.Y),ymaxv))+'" r="6"/>';}
+    if(B&&B.eq.ok&&B.eq.Y<=top)s+='<line class="con2" x1="'+X(B.eq.Y)+'" y1="'+MT2+'" x2="'+X(B.eq.Y)+'" y2="'+(MT2+PH2)+'"/>';
+  }
+  $("c_mult").innerHTML=s;
+}
+/* ================= multiplicador del gasto y crowding out ================= */
+function drawMC(M,B,E,E0){
+  if(!E.ok||!M.ok){$("d_mc").innerHTML='';$("c_wf").innerHTML='';$("rounds").innerHTML='';return;}
+  var act=!!(E0&&fiscalLike(M,B)),dA,simple,fin,di,Mref=act?B:M,Eref=act?E0:E;
+  if(act){dA=M.A-B.A;simple=dA/M.D;fin=E.Y-E0.Y;di=E.i-E0.i;}
+  else{var p2=clone(P);p2.G0+=100;var M2=model(p2,sw),E2=M2.eq;if(!E2.ok){$("d_mc").innerHTML='';return;}dA=100;simple=dA/M.D;fin=E2.Y-E.Y;di=E2.i-E.i;}
+  var crowd=simple-fin,dI=-M.b*di,pct=simple!==0?crowd/simple:0,cp=M.s,lam=Mref.lam(Eref.Y),mf=Mref.mF(Eref.Y),zo=zoneOf(Mref,Eref.Y);
+  var src=act?('el cambio aplicado (ΔA = '+sg(dA)+(lastComp==="T0"?', porque ΔA = −c₁·ΔT₀':'')+')'):'un ejemplo: +100 de gasto público desde el equilibrio actual';
+  var h='<p><b>1 · Multiplicador del gasto (cruz keynesiana, tasa fija).</b> Un aumento del gasto autónomo ΔA se convierte en ingreso. De cada peso de ingreso nuevo se vuelve a gastar c′ = '+cpLabel(M)+' = <b>'+fs(cp,nf2)+'</b>; ese gasto es ingreso de otros, que vuelven a gastar una parte, y así en rondas:</p>';
+  h+='<p class="f">ΔY = ΔA·(1 + c′ + c′² + …) = ΔA/(1 − c′) → multiplicador simple 1/Δ = '+fs(1/M.D,nf2)+'</p>';
+  h+='<p><b>2 · En IS-LM la tasa no queda fija.</b> Al subir el ingreso sube la demanda de dinero para transacciones (ky·ΔY). Con M/P dada, la tasa sube y la inversión privada cae (−b·Δi): es el <b>crowding out o efecto desplazamiento</b>. El gasto público ocupa parte del lugar del gasto privado y el multiplicador queda más chico:</p>';
+  h+='<p class="f">dY/dG = 1/(Δ + b·λ) = 1/('+fs(Mref.D,nf2)+' + '+fs(Mref.b,nf0)+' × '+fs(lam,nf3)+') = '+fs(mf,nf2)+' &lt; 1/Δ = '+fs(1/Mref.D,nf2)+'</p><p class="note">λ es la pendiente de la LM en el equilibrio inicial: la fórmula vale para cambios chicos. Para un cambio grande la LM se empina en el camino y el multiplicador efectivo resulta algo menor.</p>';
+  h+='<p><b>3 · En números</b>, para '+src+': con la tasa fija el ingreso cambiaría <b>'+sg(simple)+'</b>. La tasa '+(di>=0?'sube ':'baja ')+nf2.format(Math.abs(di))+' puntos, la inversión cambia <b>'+sg(dI)+'</b> y eso '+(crowd>=0?'resta ':'suma ')+f0(Math.abs(crowd))+' de ingreso (b·Δi/Δ). Resultado: <b>'+sg(fin)+'</b>, un multiplicador efectivo ΔY/ΔA = <b>'+fs(fin/dA,nf2)+'</b>. El crowding out es el <b>'+nf0.format(Math.abs(pct)*100)+'%</b> del efecto simple.</p>';
+  var zt={t:'<b>Zona actual: trampa de liquidez.</b> La LM es casi horizontal (λ ≈ 0): la tasa casi no sube, casi no hay crowding out y la política fiscal conserva casi todo el multiplicador simple.',
+          i:'<b>Zona actual: intermedia.</b> La LM tiene pendiente moderada: el crowding out es parcial.',
+          c:'<b>Zona actual: clásica.</b> La LM es casi vertical: la tasa sube mucho y el crowding out es casi total; el gasto público reemplaza gasto privado y el ingreso casi no cambia.'};
+  h+='<p>'+zt[zo]+'</p>';
+  $("d_mc").innerHTML=h;
+  /* cascada */
+  var vals=[dA,simple,fin],lo=Math.min(0,dA,simple,fin),hi=Math.max(0,dA,simple,fin);
+  if(hi-lo<1e-9)hi=lo+1;
+  var T=50,BT=226,Ys=function(v){return BT-(v-lo)/(hi-lo)*(BT-T);},y0=Ys(0),W=96,xs=[50,200,350,500],s='';
+  s+='<line class="axis" x1="30" y1="'+y0+'" x2="630" y2="'+y0+'"/>';
+  function bar(x,a,b,cls){var ya=Ys(a),yb=Ys(b);return '<rect class="'+cls+'" x="'+x+'" y="'+Math.min(ya,yb)+'" width="'+W+'" height="'+Math.max(1,Math.abs(yb-ya))+'" rx="3"/>';}
+  function val(x,v,yv,up){return '<text class="wval" x="'+(x+W/2)+'" y="'+(up?yv-7:yv+16)+'" text-anchor="middle">'+sg(v)+'</text>';}
+  s+=bar(xs[0],0,dA,'wb2')+val(xs[0],dA,Ys(dA),dA>=0);
+  s+=bar(xs[1],0,simple,'wb1')+val(xs[1],simple,Ys(simple),simple>=0);
+  s+=bar(xs[2],simple,fin,'wb3')+val(xs[2],fin-simple,Ys(Math.min(simple,fin)),false);
+  s+='<line x1="'+(xs[1]+W)+'" y1="'+Ys(simple)+'" x2="'+xs[2]+'" y2="'+Ys(simple)+'" stroke="var(--muted)" stroke-dasharray="3 3"/><line x1="'+(xs[2]+W)+'" y1="'+Ys(fin)+'" x2="'+xs[3]+'" y2="'+Ys(fin)+'" stroke="var(--muted)" stroke-dasharray="3 3"/>';
+  s+=bar(xs[3],0,fin,'wb4')+val(xs[3],fin,Ys(fin),fin>=0);
+  var L=[["Impulso","ΔA"],["Con tasa fija","ΔA/Δ"],["Crowding out","−b·Δi/Δ"],["Efecto final","ΔY en IS-LM"]];
+  L.forEach(function(l,k){s+='<text class="wlab" x="'+(xs[k]+W/2)+'" y="262" text-anchor="middle">'+l[0]+'</text><text class="ax" x="'+(xs[k]+W/2)+'" y="282" text-anchor="middle">'+l[1]+'</text>';});
+  s+='<text class="qt" x="30" y="16">DEL MULTIPLICADOR SIMPLE AL EFECTO FINAL'+(act?'':' · EJEMPLO ΔG = +100')+'</text>';
+  $("c_wf").innerHTML=s;
+  /* rondas */
+  var r='<tr><th>Ronda</th><th>Gasto nuevo en la ronda</th><th>Ingreso acumulado</th></tr>',acc=0,g=dA,n;
+  for(n=1;n<=6;n++){acc+=g;r+='<tr><td>'+n+(n===1?' (impulso)':'')+'</td><td class="n">'+sg(g)+'</td><td class="n">'+sg(acc)+'</td></tr>';g*=cp;}
+  r+='<tr><td>…</td><td class="n">× c′ cada ronda</td><td class="n">…</td></tr>';
+  r+='<tr><td><b>Total con la tasa fija</b></td><td class="n"></td><td class="n"><b>'+sg(simple)+'</b></td></tr>';
+  r+='<tr><td><b>Con crowding out (IS-LM)</b></td><td class="n"></td><td class="n"><b>'+sg(fin)+'</b></td></tr>';
+  $("rounds").innerHTML=r;
+}
+
+/* ================= render ================= */
+/* un solo redibujado por cuadro de animación: los sliders pueden disparar muchos eventos seguidos */
+var rafId=0,raf=window.requestAnimationFrame||function(f){return setTimeout(f,16);};
+function render(){if(rafId)return;rafId=raf(function(){rafId=0;doRender();});}
+function doRender(){OVF=false;
+  P.s=Math.round((1-P.c1)*100)/100;
+  var M=model(P,sw), B=base?model(base.P,base.sw):null;
+  SL.forEach(function(g){g.items.forEach(function(s){
+    var nf=s.d===0?nf0:s.d===1?nf1:nf2;
+    $("o_"+s.k).textContent=nf.format(P[s.k]);
+    $("r_"+s.k).value=P[s.k];
+    var off=isOff(s);$("row_"+s.k).classList.toggle("off",!!off);$("r_"+s.k).disabled=!!off;
+  });});
+  $("o_Aex").textContent=sg(P.Aex);$("r_Aex").value=P.Aex;$("o_i1").textContent=nf1.format(I1);$("o_i2").textContent=nf1.format(I2);
+  $("shk_note").textContent=B?'Las curvas anteriores quedan punteadas y E₀ marca el equilibrio inicial en todos los gráficos. "Volver al inicio" deshace el cambio.':'Aplicá un cambio y mirá cómo se mueve el equilibrio en todos los gráficos.';
+  var w=$("warn"),E=M.eq,E0=B&&B.ok&&B.eq.ok?B.eq:null;
+  if(!M.ok){w.textContent="Δ ≤ 0 con estos parámetros: el multiplicador no converge. Bajá c₁ o subí t.";w.classList.remove("hide");$("kpis").innerHTML='<div class="kpi" style="grid-column:1/-1"><small>Sin equilibrio</small><b class="t-bad" style="font-size:15px">El multiplicador no converge con estos parámetros</b></div>';return;}
+  if(!E.ok){w.textContent="Con estos valores la IS corta a la LM con un ingreso nulo o negativo: subí el gasto autónomo o la oferta monetaria.";w.classList.remove("hide");}
+  else if(E.i>60){w.textContent="La tasa de equilibrio supera 60%: el punto queda fuera de los gráficos.";w.classList.remove("hide");}
+  else w.classList.add("hide");
+  IMAX=imaxFor(M,B);
+  var ysc=scaleY(M,B);
+  drawCross(M,B,E,E0,ysc);drawDeriv(M,B,ysc,E);drawSpec(M,B,E,E0);drawLMder(M,B,ysc,E);drawIS4(M,B,E,E0,ysc);drawLM4(M,B,E,E0,ysc);
+  var mid=drawISLM(M,B,E,E0,ysc);drawMult(M,B,E,ysc);drawMC(M,B,E,E0);
+  $("fixnote").classList.toggle("hide",!(FIX&&OVF));
+  if(!E.ok){$("kpis").innerHTML="";return;}
+
+  var pa=M.parts(E.Y,E.i);
+  $("kpis").innerHTML='<div class="kpi"><small>Ingreso Y*</small><b>'+f0(E.Y)+'</b></div><div class="kpi"><small>Tasa i* (%)</small><b>'+nf1.format(E.i)+'</b></div><div class="kpi"><small>Inversión I</small><b>'+f0(pa.I)+'</b></div>';
+
+  var lam=M.lam(E.Y),zc=zoneOf(M,E.Y),zone,zdesc;
+  if(zc==="c"){zone="clásica";zdesc="La LM es casi vertical: casi todo el dinero se usa para transacciones y no queda para especular. Una expansión fiscal sube mucho la tasa y desplaza casi toda la inversión privada (crowding out casi total). La política monetaria, en cambio, es muy potente.";}
+  else if(zc==="t"){zone="trampa de liquidez (keynesiana)";zdesc="La LM es casi horizontal, cerca del piso i_mín. Con tasas tan bajas la gente espera que suban (y que caigan los precios de los bonos), así que prefiere guardar cualquier cantidad de dinero extra: la demanda especulativa absorbe toda expansión monetaria y la tasa casi no baja. Por eso la <b>política monetaria casi no mueve el ingreso</b>. La política fiscal, en cambio, casi no sube la tasa: casi no hay crowding out y conserva casi todo el multiplicador simple.";}
+  else{zone="intermedia";zdesc="La LM tiene pendiente moderada: la política fiscal funciona con crowding out parcial y la monetaria también tiene efecto.";}
+  var zb=$("zone");zb.className="zonebox"+(zc==="c"?" c":"");
+  zb.innerHTML='<b>Zona actual: '+zone+'.</b> '+zdesc+' <span class="note">Pendiente de la LM λ = '+fs(lam,nf3)+'; Ω = Δ + b·λ = '+fs(M.omega(E.Y),nf2)+'. Las bandas marcan dónde b·λ/Δ &lt; 0,2 (trampa) y &gt; 3 (clásica).</span>';
+
+  var st='';
+  if(E0&&lastComp){
+    var dY=E.Y-E0.Y,di=E.i-E0.i,isM=(lastComp==="M"||lastComp==="P");
+    var kind=lastComp==="M"?"política monetaria":lastComp==="P"?"shock de precios (cambia la oferta real M/P)":(lastComp==="G0"||lastComp==="T0"||lastComp==="TR"?"política fiscal":lastComp==="I0"||lastComp==="S0"||lastComp==="s"?"cambio en la demanda privada":"cambio de parámetro");
+    var nm=CH.filter(function(c){return c[0]===lastComp;})[0][1].split(" (")[0];
+    st+='<li><b>Cambio:</b> '+kind+', '+nm+' '+sg(lastD,Math.abs(lastD)<5?nf2:nf0)+'.</li>';
+    if(isM){
+      st+='<li><b>Efecto inicial:</b> con el ingreso todavía en '+f0(E0.Y)+', la LM se corre y la tasa pasa de '+nf1.format(E0.i)+'% a '+nf1.format(M.lmI(E0.Y))+'%.</li>';
+      st+='<li><b>Segunda vuelta:</b> la inversión cambia '+sg(M.b*(E0.i-E.i))+' y, por el multiplicador del gasto 1/Δ = '+fs(1/M.D,nf2)+', el ingreso pasa a <b>'+f0(E.Y)+'</b> ('+sg(dY)+'). La tasa final es '+nf1.format(E.i)+'% ('+sg(di,nf1)+').</li>';
+    } else {
+      var same=fiscalLike(M,B),dA=M.A-B.A;
+      if(same&&Math.abs(dA)>1e-9){
+        var dS=dA/M.D;
+        st+='<li><b>Efecto multiplicador simple:</b> el gasto autónomo cambia '+sg(dA)+' y, con la tasa fija, el ingreso cambiaría '+sg(dS)+' (1/Δ = '+fs(1/M.D,nf2)+').</li>';
+        st+='<li><b>Mercado de dinero:</b> el mayor ingreso sube la demanda de dinero para transacciones; con M/P fija la tasa pasa de '+nf1.format(E0.i)+'% a '+nf1.format(E.i)+'% ('+sg(di,nf1)+') y la inversión cambia '+sg(-M.b*di)+'. Es el <b>crowding out</b> (efecto desplazamiento).</li>';
+        st+='<li><b>Resultado:</b> el ingreso cambia <b>'+sg(dY)+'</b>, un multiplicador efectivo de '+fs(dY/dA,nf2)+' en lugar de '+fs(1/M.D,nf2)+'.</li>';
+      } else st+='<li>El ingreso pasa de '+f0(E0.Y)+' a <b>'+f0(E.Y)+'</b> ('+sg(dY)+') y la tasa de '+nf1.format(E0.i)+'% a '+nf1.format(E.i)+'%.</li>';
+    }
+    var z0=zoneOf(B,E0.Y);
+    if(isM&&z0==="t")st+='<li><b>Trampa de liquidez:</b> el dinero nuevo se atesora (la demanda especulativa lo absorbe) y la tasa casi no baja; por eso la inversión y el ingreso casi no cambian.</li>';
+    else if(isM&&z0==="c")st+='<li><b>Zona clásica:</b> todo el dinero nuevo va a transacciones, la tasa baja mucho y la política monetaria es muy potente.</li>';
+    else if(!isM&&z0==="t")st+='<li><b>Trampa de liquidez:</b> la LM es casi horizontal, la tasa casi no sube y casi no hay crowding out: el ingreso sube casi como en la cruz keynesiana.</li>';
+    else if(!isM&&z0==="c")st+='<li><b>Zona clásica:</b> la LM es casi vertical; la suba de la tasa desplaza casi toda la inversión y el ingreso casi no cambia (crowding out casi total).</li>';
+    st+='<li><b>Probá lo mismo en otra zona:</b> usá los «Escenarios para clase», o «Volver al inicio», elegí otro nivel de actividad y repetí el cambio.</li>';
+  } else {
+    st+='<li>Equilibrio inicial: <b>Y = '+f0(E.Y)+', i = '+nf1.format(E.i)+'%</b>, zona <b>'+zone+'</b>.</li>';
+    st+='<li>Elegí un escenario para clase, o un cambio en el panel izquierdo y «Aplicar cambio»: se mueven las curvas de todos los gráficos y se ve el camino de E₀ a E₁.</li>';
+    st+='<li>Para trabajar un gráfico por vez, usá los botones de arriba (1 a 7).</li>';
+  }
+  $("steps").innerHTML=st;
+
+  var pb=E0?B.parts(E0.Y,E0.i):null;
+  var rows=[["Ingreso Y","Y",nf0],["Tasa de interés i (%)","i",nf1],["Consumo C","C",nf0],["Inversión I","I",nf0],["Gasto público G","G",nf0]];
+  if(sw.open)rows.push(["Exportaciones netas XN","NX",nf0]);
+  if(P.Aex!==0)rows.push(["Gasto autónomo extra","Aex",nf0]);
+  rows.push(["Impuestos T","T",nf0]);
+  var h='<tr><th>Variable</th><th>'+(pb?'Antes (E₀)':'Equilibrio')+'</th>'+(pb?'<th>Después (E₁)</th><th>Δ</th>':'')+'</tr>';
+  rows.forEach(function(rw){var a1=(pb?pb:pa)[rw[1]];h+='<tr><td>'+rw[0]+'</td><td class="n">'+fs(a1,rw[2])+'</td>';
+    if(pb){var a2=pa[rw[1]],dd=a2-a1;h+='<td class="n">'+fs(a2,rw[2])+'</td><td class="n">'+(Math.abs(dd)<1e-9?"0":sg(dd,rw[2]))+'</td>';}h+='</tr>';});
+  $("res").innerHTML=h;
+  var Ms=E0?B:M,Es=E0?E0:E;
+  var mt='<tr><th>Multiplicador</th><th>Fórmula</th><th>Valor</th></tr>';
+  mt+='<tr><td>Simple del gasto (tasa fija)</td><td class="n">1/Δ</td><td class="n">'+fs(1/M.D,nf2)+'</td></tr>';
+  mt+='<tr><td>Pendiente de la LM (equilibrio inicial)</td><td class="n">λ</td><td class="n">'+fs(Ms.lam(Es.Y),nf3)+'</td></tr>';
+  mt+='<tr><td>Fiscal IS-LM (equilibrio inicial)</td><td class="n">1/(Δ + b·λ)</td><td class="n">'+fs(Ms.mF(Es.Y),nf2)+'</td></tr>';
+  mt+='<tr><td>Monetario por unidad de M/P (inicial)</td><td class="n">(b·λ/ky)/(Δ + b·λ)</td><td class="n">'+fs(Ms.mM(Es.Y),nf2)+'</td></tr>';
+  if(E0){mt+='<tr><td>Fiscal IS-LM (equilibrio final)</td><td class="n">1/(Δ + b·λ)</td><td class="n">'+fs(M.mF(E.Y),nf2)+'</td></tr>';mt+='<tr><td>Monetario (equilibrio final)</td><td class="n">(b·λ/ky)/(Δ + b·λ)</td><td class="n">'+fs(M.mM(E.Y),nf2)+'</td></tr>';}
+  $("mult").innerHTML=mt;
+}
+buildControls();render();
+})();
+</script>
+</body>
+</html>
